@@ -1065,9 +1065,32 @@ consteval auto generate_marshaler_type() {
         
         members.push_back(std::meta::data_member_spec(^^detail::MarshalerState<Definition, ForReading>, {.name = "state_"}));
         
+        std::vector<std::pair<std::meta::info, int>> used_bitmap_bits;
+        std::vector<uint8_t> used_tlv_tags;
+
         static constexpr auto def_mems = std::define_static_array(std::meta::members_of(^^Definition, std::meta::access_context::current()));
         template for (constexpr auto m : def_mems) {
             if constexpr (std::meta::is_nonstatic_data_member(m)) {
+                if constexpr (detail::has_annotation<non_fixed_bitmap, m>()) {
+                    constexpr auto ann = detail::get_annotation<non_fixed_bitmap, m>();
+                    for (const auto& pair : used_bitmap_bits) {
+                        if (pair.first == ann.bitmask_field && pair.second == ann.bit_index) {
+                            throw "Duplicate bit index used for the same presence bitmap!";
+                        }
+                    }
+                    used_bitmap_bits.push_back({ann.bitmask_field, ann.bit_index});
+                }
+                
+                if constexpr (detail::has_annotation<tlv_appendage, m>()) {
+                    constexpr auto ann = detail::get_annotation<tlv_appendage, m>();
+                    for (auto tag : used_tlv_tags) {
+                        if (tag == ann.tag) {
+                            throw "Duplicate tag identifier used for tlv appendage!";
+                        }
+                    }
+                    used_tlv_tags.push_back(ann.tag);
+                }
+
                 using FProxy = detail::FieldProxy<m, GeneratedProxy, Definition, ForReading>;
                 members.push_back(std::meta::data_member_spec(^^FProxy, {.name = std::meta::identifier_of(m)}));
             }
