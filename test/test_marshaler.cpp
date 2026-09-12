@@ -73,16 +73,14 @@ TEST(MarshalerTest, ReflectionSizes) {
     static_assert(aitvaras::detail::has_annotation<aitvaras::length_precedes, ^^NewOrder::memo>(), "memo should have length_precedes");
     
     // Set a fixed size field
-    auto res1 = (proxy.symbol = "AAPL");
-    EXPECT_TRUE(res1.has_value());
+    proxy.symbol = "AAPL";
     
     // Check that it's written (symbol is a padded_string of length 8)
     std::string_view sym = proxy.symbol;
     EXPECT_EQ(sym, "AAPL");
     
     // Set an arithmetic field
-    auto res2 = (proxy.price = 150.5); // price is fixed_point<6>
-    EXPECT_TRUE(res2.has_value());
+    proxy.price = 150.5; // price is fixed_point<6>
     double price_opt = proxy.price.get();
     EXPECT_DOUBLE_EQ(price_opt, 150.5);
     

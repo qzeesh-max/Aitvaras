@@ -20,18 +20,18 @@ TEST(AppendageLifecycle, OuchEnterOrder_AddVerifyRemoveReadd) {
 
     // ---- Build the fixed fields ----
     Marshaler<OuchEnterOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.type = 'O');
-    (void)(o.userRefNum = 42);
-    (void)(o.side = 'B');
-    (void)(o.quantity = 100);
-    (void)(o.symbol = "NVDA");
-    (void)(o.price = 500.0);
-    (void)(o.timeInForce = '0');
-    (void)(o.display = 'Y');
-    (void)(o.capacity = 'A');
-    (void)(o.interMarketSweepEligibility = 'N');
-    (void)(o.crossType = 'N');
-    (void)(o.clOrdID = "LIFE1");
+    o.type = 'O';
+    o.userRefNum = 42;
+    o.side = 'B';
+    o.quantity = 100;
+    o.symbol = "NVDA";
+    o.price = 500.0;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "LIFE1";
 
     const size_t fixed_size = 47;  // 1+4+1+4+8+8+1+1+1+1+1+14+2
     EXPECT_EQ(o.state_.total_size_, fixed_size);
@@ -152,18 +152,18 @@ TEST(AppendageLifecycle, OuchEnterOrder_RemoveMiddleAppendage) {
     char buffer[1024] = {0};
 
     Marshaler<OuchEnterOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.type = 'O');
-    (void)(o.userRefNum = 9);
-    (void)(o.side = 'S');
-    (void)(o.quantity = 50);
-    (void)(o.symbol = "META");
-    (void)(o.price = 300.0);
-    (void)(o.timeInForce = '0');
-    (void)(o.display = 'Y');
-    (void)(o.capacity = 'A');
-    (void)(o.interMarketSweepEligibility = 'N');
-    (void)(o.crossType = 'N');
-    (void)(o.clOrdID = "MID");
+    o.type = 'O';
+    o.userRefNum = 9;
+    o.side = 'S';
+    o.quantity = 50;
+    o.symbol = "META";
+    o.price = 300.0;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "MID";
 
     EXPECT_TRUE((o.appendageFirm   = "XXXX").has_value());
     EXPECT_TRUE((o.appendageMinQty = 10u).has_value());
@@ -197,18 +197,18 @@ TEST(AppendageLifecycle, OuchEnterOrder_RemoveLastAppendage) {
     char buffer[1024] = {0};
 
     Marshaler<OuchEnterOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.type = 'O');
-    (void)(o.userRefNum = 77);
-    (void)(o.side = 'B');
-    (void)(o.quantity = 200);
-    (void)(o.symbol = "AAPL");
-    (void)(o.price = 175.0);
-    (void)(o.timeInForce = '0');
-    (void)(o.display = 'Y');
-    (void)(o.capacity = 'A');
-    (void)(o.interMarketSweepEligibility = 'N');
-    (void)(o.crossType = 'N');
-    (void)(o.clOrdID = "LAST");
+    o.type = 'O';
+    o.userRefNum = 77;
+    o.side = 'B';
+    o.quantity = 200;
+    o.symbol = "AAPL";
+    o.price = 175.0;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "LAST";
 
     EXPECT_TRUE((o.appendageFirm  = "ABCD").has_value());
     EXPECT_TRUE((o.appendageRoute = "LAST").has_value());
@@ -238,18 +238,18 @@ TEST(AppendageLifecycle, OuchEnterOrder_RemoveAll_ThenReadd) {
     char buffer[1024] = {0};
 
     Marshaler<OuchEnterOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.type = 'O');
-    (void)(o.userRefNum = 3);
-    (void)(o.side = 'B');
-    (void)(o.quantity = 10);
-    (void)(o.symbol = "IBM");
-    (void)(o.price = 140.0);
-    (void)(o.timeInForce = '0');
-    (void)(o.display = 'Y');
-    (void)(o.capacity = 'A');
-    (void)(o.interMarketSweepEligibility = 'N');
-    (void)(o.crossType = 'N');
-    (void)(o.clOrdID = "ALL");
+    o.type = 'O';
+    o.userRefNum = 3;
+    o.side = 'B';
+    o.quantity = 10;
+    o.symbol = "IBM";
+    o.price = 140.0;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "ALL";
 
     EXPECT_TRUE((o.appendageFirm   = "FFFF").has_value());
     EXPECT_TRUE((o.appendageMinQty = 3u).has_value());
@@ -308,15 +308,15 @@ TEST(AppendageLifecycle, OuchReplaceOrder_VariableSize_RemoveReadd) {
     char buffer[1024] = {0};
 
     Marshaler<OuchReplaceOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.type = 'U');
-    (void)(o.origUserRefNum = 1);
-    (void)(o.userRefNum = 2);
-    (void)(o.quantity = 500);
-    (void)(o.price = 99.0);
-    (void)(o.timeInForce = '0');
-    (void)(o.display = 'Y');
-    (void)(o.interMarketSweepEligibility = 'N');
-    (void)(o.clOrdID = "LCY");
+    o.type = 'U';
+    o.origUserRefNum = 1;
+    o.userRefNum = 2;
+    o.quantity = 500;
+    o.price = 99.0;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.interMarketSweepEligibility = 'N';
+    o.clOrdID = "LCY";
 
     // Step 1: Add HandleInst (1 byte) + Firm (4 bytes)
     EXPECT_TRUE((o.appendageHandleInst = 0x02).has_value());
@@ -372,12 +372,12 @@ TEST(OptionalLifecycle, SeedLimitOrder_AddVerifyRemoveReadd) {
     char buffer[1024] = {0};
 
     Marshaler<SeedLimitOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.messageType = 'O');
-    (void)(o.clOrdId = 123456789ULL);
-    (void)(o.orderQty = 500);
-    (void)(o.limitOrderBitFields = 0);
-    (void)(o.symbolId = 1);
-    (void)(o.price = 150.0);
+    o.messageType = 'O';
+    o.clOrdId = 123456789ULL;
+    o.orderQty = 500;
+    o.limitOrderBitFields = 0;
+    o.symbolId = 1;
+    o.price = 150.0;
 
     const size_t fixed_size = 31;
     EXPECT_EQ(o.state_.total_size_, fixed_size);
