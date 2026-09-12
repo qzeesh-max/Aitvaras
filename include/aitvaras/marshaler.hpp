@@ -712,54 +712,109 @@ namespace detail {
         template <std::meta::info field>
         std::expected<void, const char*> remove() {
             if constexpr (ForReading) return std::unexpected("Cannot remove in ForReading mode");
-            if constexpr (!is_tlv_field<field>()) return std::unexpected("remove() only valid for tlv_appendage fields");
+            
+            if constexpr (is_tlv_field<field>()) {
+                size_t idx        = get_tlv_field_index<field>();
+                size_t old_offset = tlv_offsets_[idx];
+                size_t old_len    = tlv_sizes_[idx];
 
-            size_t idx        = get_tlv_field_index<field>();
-            size_t old_offset = tlv_offsets_[idx];
-            size_t old_len    = tlv_sizes_[idx];
+                if (old_offset == 0) return {};  // already absent — no-op
 
-            if (old_offset == 0) return {};  // already absent — no-op
+                // Full TLV frame: [len_byte][tag_byte][value...]
+                size_t frame_start = old_offset - 2;
+                size_t frame_size  = 2 + old_len;
 
-            // Full TLV frame: [len_byte][tag_byte][value...]
-            size_t frame_start = old_offset - 2;
-            size_t frame_size  = 2 + old_len;
-
-            // Slide everything after this frame backwards to fill the gap
-            size_t downstream_start = frame_start + frame_size;
-            size_t downstream_len   = total_size_ - downstream_start;
-            if (downstream_len > 0) {
-                std::memmove(buffer_.data() + frame_start,
-                             buffer_.data() + downstream_start,
-                             downstream_len);
-            }
-            // Zero the vacated tail so the buffer is deterministic
-            std::memset(buffer_.data() + total_size_ - frame_size, 0, frame_size);
-
-            total_size_ -= frame_size;
-
-            // Adjust offsets of all TLV fields that were located after this frame
-            for (size_t i = 0; i < NumTLVFields; i++) {
-                if (tlv_offsets_[i] >= downstream_start) {
-                    tlv_offsets_[i] -= frame_size;
+                // Slide everything after this frame backwards to fill the gap
+                size_t downstream_start = frame_start + frame_size;
+                size_t downstream_len   = total_size_ - downstream_start;
+                if (downstream_len > 0) {
+                    std::memmove(buffer_.data() + frame_start,
+                                 buffer_.data() + downstream_start,
+                                 downstream_len);
                 }
-            }
+                // Zero the vacated tail so the buffer is deterministic
+                std::memset(buffer_.data() + total_size_ - frame_size, 0, frame_size);
 
-            // Clear this field's tracking slot
-            tlv_offsets_[idx] = 0;
-            tlv_sizes_[idx]   = 0;
+                total_size_ -= frame_size;
 
-            // Decrement the region-length counter stored in the fixed header
-            static constexpr auto mems = std::define_static_array(std::meta::members_of(^^Definition, std::meta::access_context::current()));
-            template for (constexpr auto m : mems) {
-                if constexpr (std::meta::is_nonstatic_data_member(m)) {
-                    if constexpr (has_annotation<tlv_region_length, m>()) {
-                        auto cur = this->template _get_fixed<m>(this->template get_field_offset<m>());
-                        this->template _set_fixed<m>(this->template get_field_offset<m>(), cur - frame_size);
+                // Adjust offsets of all TLV fields that were located after this frame
+                for (size_t i = 0; i < NumTLVFields; i++) {
+                    if (tlv_offsets_[i] >= downstream_start) {
+                        tlv_offsets_[i] -= frame_size;
                     }
                 }
-            }
 
-            return {};
+                // Clear this field's tracking slot
+                tlv_offsets_[idx] = 0;
+                tlv_sizes_[idx]   = 0;
+
+                // Decrement the region-length counter stored in the fixed header
+                static constexpr auto mems = std::define_static_array(std::meta::members_of(^^Definition, std::meta::access_context::current()));
+                template for (constexpr auto m : mems) {
+                    if constexpr (std::meta::is_nonstatic_data_member(m)) {
+                        if constexpr (has_annotation<tlv_region_length, m>()) {
+                            auto cur = this->template _get_fixed<m>(this->template get_field_offset<m>());
+                            this->template _set_fixed<m>(this->template get_field_offset<m>(), cur - frame_size);
+                        }
+                    }
+                }
+                return {};
+            } else if constexpr (has_annotation<non_fixed_bitmap, field>()) {
+                size_t var_idx = get_var_field_index<field>();
+                size_t old_size = var_sizes_[var_idx];
+                
+                if (old_size == 0) return {}; // already absent - no-op
+                
+                size_t offset = get_field_offset<field>();
+                
+                size_t downstream_start = offset + old_size;
+                size_t downstream_len = total_size_ - downstream_start;
+                if (downstream_len > 0) {
+                    std::memmove(buffer_.data() + offset,
+                                 buffer_.data() + downstream_start,
+                                 downstream_len);
+                }
+                
+                std::memset(buffer_.data() + total_size_ - old_size, 0, old_size);
+                
+                for (size_t i = 0; i < NumTLVFields; i++) {
+                    if (tlv_offsets_[i] >= downstream_start) {
+                        tlv_offsets_[i] -= old_size;
+                    }
+                }
+                
+                var_sizes_[var_idx] = 0;
+                total_size_ -= old_size;
+                
+                static constexpr auto mems = std::define_static_array(std::meta::members_of(^^Definition, std::meta::access_context::current()));
+                template for (constexpr auto m : mems) {
+                    if constexpr (std::meta::is_nonstatic_data_member(m)) {
+                        if constexpr (has_annotation<tlv_region_length, m>()) {
+                            auto cur = this->template _get_fixed<m>(this->template get_field_offset<m>());
+                            this->template _set_fixed<m>(this->template get_field_offset<m>(), cur - old_size);
+                        }
+                    }
+                }
+                
+                constexpr auto anno = get_annotation<non_fixed_bitmap, field>();
+                constexpr std::string_view bitmask_name = std::meta::identifier_of(anno.bitmask_field);
+                constexpr int bit_index = anno.bit_index;
+                
+                template for (constexpr auto m : mems) {
+                    if constexpr (std::meta::is_nonstatic_data_member(m)) {
+                        constexpr std::string_view name = std::meta::identifier_of(m);
+                        if constexpr (name == bitmask_name) {
+                            auto current_bitmask_val = this->template _get_fixed<m>(this->template get_field_offset<m>());
+                            uint64_t current_bitmask = static_cast<uint64_t>(current_bitmask_val);
+                            current_bitmask &= ~(1ULL << bit_index);
+                            this->template _set_fixed<m>(this->template get_field_offset<m>(), current_bitmask);
+                        }
+                    }
+                }
+                return {};
+            } else {
+                return std::unexpected("remove() only valid for tlv_appendage or non_fixed_bitmap fields");
+            }
         }
 
     };

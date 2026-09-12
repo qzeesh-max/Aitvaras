@@ -367,3 +367,80 @@ TEST(AppendageLifecycle, OuchReplaceOrder_VariableSize_RemoveReadd) {
         EXPECT_EQ(*firm, "ORDR");
     }
 }
+
+TEST(OptionalLifecycle, SeedLimitOrder_AddVerifyRemoveReadd) {
+    char buffer[1024] = {0};
+
+    Marshaler<SeedLimitOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
+    (void)(o.messageType = 'O');
+    (void)(o.clOrdId = 123456789ULL);
+    (void)(o.orderQty = 500);
+    (void)(o.limitOrderBitFields = 0);
+    (void)(o.symbolId = 1);
+    (void)(o.price = 150.0);
+
+    const size_t fixed_size = 31;
+    EXPECT_EQ(o.state_.total_size_, fixed_size);
+
+    // Step 1: Add maxFloorQty (4 bytes)
+    EXPECT_TRUE((o.maxFloorQty = 100).has_value());
+
+    size_t sz_after_one = o.state_.total_size_;
+    EXPECT_EQ(sz_after_one, fixed_size + 4u);
+
+    {
+        Marshaler<SeedLimitOrder, true> r{{std::span<const char>(buffer, sz_after_one)}};
+        auto maxf = r.maxFloorQty.get();
+        ASSERT_TRUE(maxf.has_value());
+        EXPECT_EQ(*maxf, 100u);
+    }
+
+    // Step 2: Add mpid (4 bytes)
+    EXPECT_TRUE((o.mpid = "BAML").has_value());
+
+    size_t sz_after_two = o.state_.total_size_;
+    EXPECT_EQ(sz_after_two, sz_after_one + 4u);
+
+    {
+        Marshaler<SeedLimitOrder, true> r{{std::span<const char>(buffer, sz_after_two)}};
+        auto mpid = r.mpid.get();
+        ASSERT_TRUE(mpid.has_value());
+        EXPECT_EQ(*mpid, "BAML");
+
+        auto maxf = r.maxFloorQty.get();
+        ASSERT_TRUE(maxf.has_value());
+        EXPECT_EQ(*maxf, 100u);
+    }
+
+    // Step 3: Remove maxFloorQty
+    EXPECT_TRUE(o.maxFloorQty.remove().has_value());
+    EXPECT_EQ(o.state_.total_size_, sz_after_two - 4u);
+
+    {
+        size_t sz = o.state_.total_size_;
+        Marshaler<SeedLimitOrder, true> r{{std::span<const char>(buffer, sz)}};
+        
+        EXPECT_FALSE(r.maxFloorQty.get().has_value());
+
+        auto mpid = r.mpid.get();
+        ASSERT_TRUE(mpid.has_value());
+        EXPECT_EQ(*mpid, "BAML");
+    }
+
+    // Step 4: Re-add maxFloorQty with a different value
+    EXPECT_TRUE((o.maxFloorQty = 200).has_value());
+    EXPECT_EQ(o.state_.total_size_, sz_after_two);
+
+    {
+        size_t sz = o.state_.total_size_;
+        Marshaler<SeedLimitOrder, true> r{{std::span<const char>(buffer, sz)}};
+
+        auto maxf = r.maxFloorQty.get();
+        ASSERT_TRUE(maxf.has_value());
+        EXPECT_EQ(*maxf, 200u);
+
+        auto mpid = r.mpid.get();
+        ASSERT_TRUE(mpid.has_value());
+        EXPECT_EQ(*mpid, "BAML");
+    }
+}
