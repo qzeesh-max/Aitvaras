@@ -39,8 +39,7 @@ TEST(AppendageLifecycle, OuchEnterOrder_AddVerifyRemoveReadd) {
     // =========================================================
     // STEP 1: Add Firm appendage, verify
     // =========================================================
-    const uint8_t firm1[] = {'F', 'I', 'R', 'M'};
-    EXPECT_TRUE((o.appendageFirm = std::span<const uint8_t>(firm1, 4)).has_value());
+    EXPECT_TRUE((o.appendageFirm = "FIRM").has_value());
 
     // Fixed + 1 frame (2 + 4)
     EXPECT_EQ(o.state_.total_size_, fixed_size + 6u);
@@ -50,8 +49,7 @@ TEST(AppendageLifecycle, OuchEnterOrder_AddVerifyRemoveReadd) {
         Marshaler<OuchEnterOrder, true> r{{std::span<const char>(buffer, sz)}};
         auto firm = r.appendageFirm.get();
         ASSERT_TRUE(firm.has_value());
-        EXPECT_EQ((*firm)[0], 'F');
-        EXPECT_EQ((*firm)[3], 'M');
+        EXPECT_EQ(*firm, "FIRM");
         // Others absent
         EXPECT_FALSE(r.appendageMinQty.get().has_value());
         EXPECT_FALSE(r.appendageRoute.get().has_value());
@@ -61,11 +59,8 @@ TEST(AppendageLifecycle, OuchEnterOrder_AddVerifyRemoveReadd) {
     // =========================================================
     // STEP 2: Add MinQty and Route appendages, verify all three
     // =========================================================
-    const uint8_t minqty1[] = {0x00, 0x00, 0x00, 0x05};  // uint32 = 5
-    const uint8_t route1[]  = {'I', 'N', 'T', 'L'};
-
-    EXPECT_TRUE((o.appendageMinQty = std::span<const uint8_t>(minqty1, 4)).has_value());
-    EXPECT_TRUE((o.appendageRoute  = std::span<const uint8_t>(route1,  4)).has_value());
+    EXPECT_TRUE((o.appendageMinQty = 5u).has_value());
+    EXPECT_TRUE((o.appendageRoute  = "INTL").has_value());
 
     // Fixed + 3 frames each (2 + 4)
     EXPECT_EQ(o.state_.total_size_, fixed_size + 3 * 6u);
@@ -76,16 +71,15 @@ TEST(AppendageLifecycle, OuchEnterOrder_AddVerifyRemoveReadd) {
 
         auto firm = r.appendageFirm.get();
         ASSERT_TRUE(firm.has_value());
-        EXPECT_EQ((*firm)[0], 'F');
+        EXPECT_EQ(*firm, "FIRM");
 
         auto minqty = r.appendageMinQty.get();
         ASSERT_TRUE(minqty.has_value());
-        EXPECT_EQ((*minqty)[3], 0x05u);
+        EXPECT_EQ(*minqty, 0x05u);
 
         auto route = r.appendageRoute.get();
         ASSERT_TRUE(route.has_value());
-        EXPECT_EQ((*route)[0], 'I');
-        EXPECT_EQ((*route)[3], 'L');
+        EXPECT_EQ(*route, "INTL");
 
         // Others still absent
         EXPECT_FALSE(r.appendagePegOffset.get().has_value());
@@ -111,12 +105,11 @@ TEST(AppendageLifecycle, OuchEnterOrder_AddVerifyRemoveReadd) {
         // MinQty and Route are unaffected
         auto minqty = r.appendageMinQty.get();
         ASSERT_TRUE(minqty.has_value());
-        EXPECT_EQ((*minqty)[3], 0x05u);
+        EXPECT_EQ(*minqty, 0x05u);
 
         auto route = r.appendageRoute.get();
         ASSERT_TRUE(route.has_value());
-        EXPECT_EQ((*route)[0], 'I');
-        EXPECT_EQ((*route)[3], 'L');
+        EXPECT_EQ(*route, "INTL");
     }
 
     // Removing again is a no-op (should succeed)
@@ -127,8 +120,7 @@ TEST(AppendageLifecycle, OuchEnterOrder_AddVerifyRemoveReadd) {
     // STEP 4: Re-add Firm with different content, verify all
     //         three appendages again with correct values
     // =========================================================
-    const uint8_t firm2[] = {'A', 'C', 'M', 'E'};
-    EXPECT_TRUE((o.appendageFirm = std::span<const uint8_t>(firm2, 4)).has_value());
+    EXPECT_TRUE((o.appendageFirm = "ACME").has_value());
 
     // Back to 3 frames
     EXPECT_EQ(o.state_.total_size_, fixed_size + 3 * 6u);
@@ -140,21 +132,17 @@ TEST(AppendageLifecycle, OuchEnterOrder_AddVerifyRemoveReadd) {
         // Firm is back with new content
         auto firm = r.appendageFirm.get();
         ASSERT_TRUE(firm.has_value());
-        EXPECT_EQ((*firm)[0], 'A');
-        EXPECT_EQ((*firm)[1], 'C');
-        EXPECT_EQ((*firm)[2], 'M');
-        EXPECT_EQ((*firm)[3], 'E');
+        EXPECT_EQ(*firm, "ACME");
 
         // MinQty untouched
         auto minqty = r.appendageMinQty.get();
         ASSERT_TRUE(minqty.has_value());
-        EXPECT_EQ((*minqty)[3], 0x05u);
+        EXPECT_EQ(*minqty, 0x05u);
 
         // Route untouched
         auto route = r.appendageRoute.get();
         ASSERT_TRUE(route.has_value());
-        EXPECT_EQ((*route)[0], 'I');
-        EXPECT_EQ((*route)[3], 'L');
+        EXPECT_EQ(*route, "INTL");
     }
 }
 
@@ -177,13 +165,9 @@ TEST(AppendageLifecycle, OuchEnterOrder_RemoveMiddleAppendage) {
     (void)(o.crossType = 'N');
     (void)(o.clOrdID = "MID");
 
-    const uint8_t firm_data[]   = {'X', 'X', 'X', 'X'};
-    const uint8_t minqty_data[] = {0x00, 0x00, 0x00, 0x0A};
-    const uint8_t route_data[]  = {'N', 'Y', 'S', 'E'};
-
-    EXPECT_TRUE((o.appendageFirm   = std::span<const uint8_t>(firm_data,   4)).has_value());
-    EXPECT_TRUE((o.appendageMinQty = std::span<const uint8_t>(minqty_data, 4)).has_value());
-    EXPECT_TRUE((o.appendageRoute  = std::span<const uint8_t>(route_data,  4)).has_value());
+    EXPECT_TRUE((o.appendageFirm   = "XXXX").has_value());
+    EXPECT_TRUE((o.appendageMinQty = 10u).has_value());
+    EXPECT_TRUE((o.appendageRoute  = "NYSE").has_value());
 
     const size_t fixed_size = 47;
     EXPECT_EQ(o.state_.total_size_, fixed_size + 18u);  // 3 × 6
@@ -198,15 +182,13 @@ TEST(AppendageLifecycle, OuchEnterOrder_RemoveMiddleAppendage) {
 
         auto firm = r.appendageFirm.get();
         ASSERT_TRUE(firm.has_value());
-        EXPECT_EQ((*firm)[0], 'X');
+        EXPECT_EQ(*firm, "XXXX");
 
         EXPECT_FALSE(r.appendageMinQty.get().has_value());
 
         auto route = r.appendageRoute.get();
         ASSERT_TRUE(route.has_value());
-        EXPECT_EQ((*route)[0], 'N');
-        EXPECT_EQ((*route)[2], 'S');
-        EXPECT_EQ((*route)[3], 'E');
+        EXPECT_EQ(*route, "NYSE");
     }
 }
 
@@ -228,11 +210,8 @@ TEST(AppendageLifecycle, OuchEnterOrder_RemoveLastAppendage) {
     (void)(o.crossType = 'N');
     (void)(o.clOrdID = "LAST");
 
-    const uint8_t firm_data[]  = {'A', 'B', 'C', 'D'};
-    const uint8_t route_data[] = {'L', 'A', 'S', 'T'};
-
-    EXPECT_TRUE((o.appendageFirm  = std::span<const uint8_t>(firm_data,  4)).has_value());
-    EXPECT_TRUE((o.appendageRoute = std::span<const uint8_t>(route_data, 4)).has_value());
+    EXPECT_TRUE((o.appendageFirm  = "ABCD").has_value());
+    EXPECT_TRUE((o.appendageRoute = "LAST").has_value());
 
     const size_t fixed_size = 47;
     EXPECT_EQ(o.state_.total_size_, fixed_size + 12u);
@@ -247,8 +226,7 @@ TEST(AppendageLifecycle, OuchEnterOrder_RemoveLastAppendage) {
 
         auto firm = r.appendageFirm.get();
         ASSERT_TRUE(firm.has_value());
-        EXPECT_EQ((*firm)[0], 'A');
-        EXPECT_EQ((*firm)[3], 'D');
+        EXPECT_EQ(*firm, "ABCD");
 
         EXPECT_FALSE(r.appendageRoute.get().has_value());
     }
@@ -273,13 +251,9 @@ TEST(AppendageLifecycle, OuchEnterOrder_RemoveAll_ThenReadd) {
     (void)(o.crossType = 'N');
     (void)(o.clOrdID = "ALL");
 
-    const uint8_t firm_data[]   = {'F', 'F', 'F', 'F'};
-    const uint8_t minqty_data[] = {0x00, 0x00, 0x00, 0x03};
-    const uint8_t route_data[]  = {'R', 'R', 'R', 'R'};
-
-    EXPECT_TRUE((o.appendageFirm   = std::span<const uint8_t>(firm_data,   4)).has_value());
-    EXPECT_TRUE((o.appendageMinQty = std::span<const uint8_t>(minqty_data, 4)).has_value());
-    EXPECT_TRUE((o.appendageRoute  = std::span<const uint8_t>(route_data,  4)).has_value());
+    EXPECT_TRUE((o.appendageFirm   = "FFFF").has_value());
+    EXPECT_TRUE((o.appendageMinQty = 3u).has_value());
+    EXPECT_TRUE((o.appendageRoute  = "RRRR").has_value());
 
     const size_t fixed_size = 47;
     EXPECT_EQ(o.state_.total_size_, fixed_size + 18u);
@@ -304,13 +278,9 @@ TEST(AppendageLifecycle, OuchEnterOrder_RemoveAll_ThenReadd) {
     }
 
     // Re-add in reverse order
-    const uint8_t route2[] = {'N', 'E', 'W', 'R'};
-    const uint8_t minqty2[] = {0x00, 0x00, 0x00, 0xFF};
-    const uint8_t firm2[]  = {'N', 'E', 'W', 'F'};
-
-    EXPECT_TRUE((o.appendageRoute  = std::span<const uint8_t>(route2,  4)).has_value());
-    EXPECT_TRUE((o.appendageMinQty = std::span<const uint8_t>(minqty2, 4)).has_value());
-    EXPECT_TRUE((o.appendageFirm   = std::span<const uint8_t>(firm2,   4)).has_value());
+    EXPECT_TRUE((o.appendageRoute  = "NEWR").has_value());
+    EXPECT_TRUE((o.appendageMinQty = 255u).has_value());
+    EXPECT_TRUE((o.appendageFirm   = "NEWF").has_value());
 
     EXPECT_EQ(o.state_.total_size_, fixed_size + 18u);
 
@@ -320,17 +290,15 @@ TEST(AppendageLifecycle, OuchEnterOrder_RemoveAll_ThenReadd) {
 
         auto firm = r.appendageFirm.get();
         ASSERT_TRUE(firm.has_value());
-        EXPECT_EQ((*firm)[0], 'N');
-        EXPECT_EQ((*firm)[3], 'F');
+        EXPECT_EQ(*firm, "NEWF");
 
         auto minqty = r.appendageMinQty.get();
         ASSERT_TRUE(minqty.has_value());
-        EXPECT_EQ((*minqty)[3], 0xFFu);
+        EXPECT_EQ(*minqty, 0xFFu);
 
         auto route = r.appendageRoute.get();
         ASSERT_TRUE(route.has_value());
-        EXPECT_EQ((*route)[0], 'N');
-        EXPECT_EQ((*route)[2], 'W');
+        EXPECT_EQ(*route, "NEWR");
     }
 }
 
@@ -351,11 +319,8 @@ TEST(AppendageLifecycle, OuchReplaceOrder_VariableSize_RemoveReadd) {
     (void)(o.clOrdID = "LCY");
 
     // Step 1: Add HandleInst (1 byte) + Firm (4 bytes)
-    const uint8_t hi1[] = {0x02};
-    const uint8_t f1[]  = {'O', 'R', 'D', 'R'};
-
-    EXPECT_TRUE((o.appendageHandleInst = std::span<const uint8_t>(hi1, 1)).has_value());
-    EXPECT_TRUE((o.appendageFirm       = std::span<const uint8_t>(f1,  4)).has_value());
+    EXPECT_TRUE((o.appendageHandleInst = 0x02).has_value());
+    EXPECT_TRUE((o.appendageFirm       = "ORDR").has_value());
 
     size_t sz_after_two = o.state_.total_size_;
 
@@ -364,11 +329,11 @@ TEST(AppendageLifecycle, OuchReplaceOrder_VariableSize_RemoveReadd) {
         Marshaler<OuchReplaceOrder, true> r{{std::span<const char>(buffer, sz_after_two)}};
         auto hi = r.appendageHandleInst.get();
         ASSERT_TRUE(hi.has_value());
-        EXPECT_EQ((*hi)[0], 0x02u);
+        EXPECT_EQ(*hi, 0x02u);
 
         auto firm = r.appendageFirm.get();
         ASSERT_TRUE(firm.has_value());
-        EXPECT_EQ((*firm)[0], 'O');
+        EXPECT_EQ(*firm, "ORDR");
     }
 
     // Step 3: Remove HandleInst
@@ -382,12 +347,11 @@ TEST(AppendageLifecycle, OuchReplaceOrder_VariableSize_RemoveReadd) {
 
         auto firm = r.appendageFirm.get();
         ASSERT_TRUE(firm.has_value());
-        EXPECT_EQ((*firm)[0], 'O');
+        EXPECT_EQ(*firm, "ORDR");
     }
 
     // Step 4: Re-add HandleInst with a different value
-    const uint8_t hi2[] = {0x07};
-    EXPECT_TRUE((o.appendageHandleInst = std::span<const uint8_t>(hi2, 1)).has_value());
+    EXPECT_TRUE((o.appendageHandleInst = 0x07).has_value());
     EXPECT_EQ(o.state_.total_size_, sz_after_two);
 
     {
@@ -396,10 +360,10 @@ TEST(AppendageLifecycle, OuchReplaceOrder_VariableSize_RemoveReadd) {
 
         auto hi = r.appendageHandleInst.get();
         ASSERT_TRUE(hi.has_value());
-        EXPECT_EQ((*hi)[0], 0x07u);  // new value
+        EXPECT_EQ(*hi, 0x07u);  // new value
 
         auto firm = r.appendageFirm.get();
         ASSERT_TRUE(firm.has_value());
-        EXPECT_EQ((*firm)[0], 'O');   // unchanged
+        EXPECT_EQ(*firm, "ORDR");
     }
 }
