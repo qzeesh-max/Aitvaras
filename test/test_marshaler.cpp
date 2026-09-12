@@ -121,11 +121,65 @@ TEST(MarshalerTest, ReflectionSizes) {
     
     // Check that we can read it back
     auto order_type_val = proxy.orderType.get();
-    EXPECT_TRUE(order_type_val.has_value());
-    EXPECT_EQ(*order_type_val, static_cast<uint8_t>(OrderType::Market));
+    ASSERT_TRUE(order_type_val.has_value());
+    EXPECT_EQ(*order_type_val, 2);
     
     // Check total size updated
     EXPECT_GT(proxy.state_.total_size_, 30);
+}
+
+struct TestMessage {
+    uint8_t msgType;
+    uint32_t length;
+    uint32_t optionalFields;
+    
+    [[=aitvaras::non_fixed_bitmap{^^optionalFields, 0}]]
+    std::string_view memo;
+    
+    [[=aitvaras::non_fixed_bitmap{^^optionalFields, 1}]]
+    uint8_t orderType;
+};
+
+TEST(MarshalerTest, ForEachMethods) {
+    char buffer[256] = {0};
+    Marshaler<TestMessage> proxy{{std::span<char>(buffer, sizeof(buffer))}};
+    
+    proxy.msgType = 1;
+    proxy.length = 10;
+    proxy.optionalFields = 0; // all bits 0 initially
+    EXPECT_TRUE((proxy.memo = "ABC").has_value()); // optional (tlv)
+    EXPECT_TRUE((proxy.orderType = 5).has_value()); // optional (bitmap)
+    
+    std::vector<std::string> fixed_fields;
+    proxy.for_each_fixed([&](std::string_view name, auto&& val) {
+        fixed_fields.push_back(std::string(name));
+    });
+    
+    EXPECT_EQ(fixed_fields.size(), 3u);
+    EXPECT_EQ(fixed_fields[0], "msgType");
+    EXPECT_EQ(fixed_fields[1], "length");
+    EXPECT_EQ(fixed_fields[2], "optionalFields");
+
+    std::vector<std::string> optional_fields;
+    proxy.for_each_optional([&](std::string_view name, auto&& val) {
+        optional_fields.push_back(std::string(name));
+    });
+    
+    EXPECT_EQ(optional_fields.size(), 2u);
+    EXPECT_EQ(optional_fields[0], "memo");
+    EXPECT_EQ(optional_fields[1], "orderType");
+
+    std::vector<std::string> all_fields;
+    proxy.for_each_all([&](std::string_view name, auto&& val) {
+        all_fields.push_back(std::string(name));
+    });
+    
+    EXPECT_EQ(all_fields.size(), 5u);
+    EXPECT_EQ(all_fields[0], "msgType");
+    EXPECT_EQ(all_fields[1], "length");
+    EXPECT_EQ(all_fields[2], "optionalFields");
+    EXPECT_EQ(all_fields[3], "memo");
+    EXPECT_EQ(all_fields[4], "orderType");
 }
 
 int main(int argc, char **argv) {
