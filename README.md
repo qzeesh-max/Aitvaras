@@ -12,6 +12,8 @@ Aitvaras is a modern, zero-allocation binary protocol marshaling framework writt
   - `[[=string_pad{' '}]]`: Strips trailing characters dynamically upon reading and pads fields upon writing.
 - **Optional Fields & Bitmaps**: Natively supports structures that contain presence bitmaps controlling the availability of optional fields.
 - **Dynamic Appendages (TLV)**: Natively parses and writes Type-Length-Value (TLV) sequences appended to the end of structured messages, with a fully typed mutator and accessor API.
+- **JSON Serialization**: Automatically generate JSON representations (`to_json`) of binary structures using compile-time reflection, supporting full verbosity configuration for binary blob appendages.
+- **Structural Iteration**: Execute logic across subsets of message fields via compile-time generated Visitor pattern methods (`for_each_fixed`, `for_each_optional`, `for_each_all`).
 - **Safety First**: Constrained mutation operations to prevent misuse (e.g. read-only messages cannot be written to).
 
 ## Testing & Validation Protocols

@@ -1002,8 +1002,60 @@ void write_json_val(std::ostream& os, const T& val, const JsonOptions& options) 
         os << "\"<unsupported_type>\"";
     }
 }
-
 } // namespace detail
+
+template <typename Derived, typename Definition, bool ForReading>
+struct MarshalerMethods {
+    template<typename Visitor>
+    void for_each_optional(Visitor&& visitor) const {
+        auto* self = static_cast<const Derived*>(this);
+        static constexpr auto def_mems = std::define_static_array(std::meta::members_of(^^Definition, std::meta::access_context::current()));
+        template for (constexpr auto m : def_mems) {
+            if constexpr (std::meta::is_nonstatic_data_member(m)) {
+                constexpr bool is_optional = detail::has_annotation<non_fixed_bitmap, m>() || detail::has_annotation<tlv_appendage, m>();
+                if constexpr (is_optional) {
+                    auto val_expected = self->state_.template get<m>();
+                    if (val_expected.has_value()) {
+                        visitor(std::meta::identifier_of(m), *val_expected);
+                    }
+                }
+            }
+        }
+    }
+
+    template<typename Visitor>
+    void for_each_fixed(Visitor&& visitor) const {
+        auto* self = static_cast<const Derived*>(this);
+        static constexpr auto def_mems = std::define_static_array(std::meta::members_of(^^Definition, std::meta::access_context::current()));
+        template for (constexpr auto m : def_mems) {
+            if constexpr (std::meta::is_nonstatic_data_member(m)) {
+                constexpr bool is_optional = detail::has_annotation<non_fixed_bitmap, m>() || detail::has_annotation<tlv_appendage, m>();
+                if constexpr (!is_optional) {
+                    visitor(std::meta::identifier_of(m), self->state_.template get<m>());
+                }
+            }
+        }
+    }
+
+    template<typename Visitor>
+    void for_each_all(Visitor&& visitor) const {
+        auto* self = static_cast<const Derived*>(this);
+        static constexpr auto def_mems = std::define_static_array(std::meta::members_of(^^Definition, std::meta::access_context::current()));
+        template for (constexpr auto m : def_mems) {
+            if constexpr (std::meta::is_nonstatic_data_member(m)) {
+                constexpr bool is_optional = detail::has_annotation<non_fixed_bitmap, m>() || detail::has_annotation<tlv_appendage, m>();
+                if constexpr (is_optional) {
+                    auto val_expected = self->state_.template get<m>();
+                    if (val_expected.has_value()) {
+                        visitor(std::meta::identifier_of(m), *val_expected);
+                    }
+                } else {
+                    visitor(std::meta::identifier_of(m), self->state_.template get<m>());
+                }
+            }
+        }
+    }
+};
 
 template <typename Definition, bool ForReading = false>
 consteval auto generate_marshaler_type() {
@@ -1024,7 +1076,7 @@ consteval auto generate_marshaler_type() {
         std::meta::define_aggregate(^^GeneratedProxy, members);
     }
     
-    struct Wrapper : GeneratedProxy {
+    struct Wrapper : GeneratedProxy, MarshalerMethods<Wrapper, Definition, ForReading> {
         void to_json(std::ostream& os, const JsonOptions& options = {}) const {
             os << "{";
             bool first = true;
