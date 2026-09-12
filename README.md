@@ -27,6 +27,42 @@ To test the extreme flexibility and capabilities of the Aitvaras framework, we i
 
 > **Note**: The specification documents for these protocols (`specs/`) are included strictly for demonstration and testing purposes. Aitvaras uses them to showcase its capability to define and parse extremely strict structural layouts. OUCH and SoupBinTCP are the property of Nasdaq, Inc. SEED and RAKE are the property of the Texas Stock Exchange. No ownership of these protocols is claimed (see the `CREDITS` file for more details).
 
+## Compile-Time Code Generation Workflow
+
+Aitvaras evaluates your protocol structures at compile time to build highly-optimized marshaler layouts. The diagram below details the steps the framework takes as it encounters firm (fixed), bit-presence, and dynamic FLV (TLV) fields.
+
+```mermaid
+flowchart TD
+    Start([Compile-Time Reflection Starts]) --> Iterate[Iterate over C++ struct fields]
+    Iterate --> FieldCheck{"What type of field is it?"}
+    
+    %% Firm Field Path
+    FieldCheck -->|Firm Field| FirmPath["Normal Field (No Optional Attributes)"]
+    FirmPath --> FirmGenerate["Generate FieldProxy"]
+    FirmGenerate --> FirmAdd["Add FieldProxy to GeneratedProxy layout"]
+    
+    %% Bit-Presence Field Path
+    FieldCheck -->|"Bit-Presence Field"| BitPath["Has [[=non_fixed_bitmap]] attribute"]
+    BitPath --> BitValidate{"Are bitmask_field and bit_index unique?"}
+    BitValidate -->|No| BitThrow["Throw Compile-Time Error"]
+    BitValidate -->|Yes| BitGenerate["Generate FieldProxy"]
+    BitGenerate --> BitAdd["Add FieldProxy to GeneratedProxy layout"]
+    
+    %% FLV (TLV) Field Path
+    FieldCheck -->|"FLV Field"| FLVPath["Has [[=tlv_appendage]] attribute"]
+    FLVPath --> FLVValidate{"Is tag unique?"}
+    FLVValidate -->|No| FLVThrow["Throw Compile-Time Error"]
+    FLVValidate -->|Yes| FLVGenerate["Generate FieldProxy"]
+    FLVGenerate --> FLVAdd["Add FieldProxy to GeneratedProxy layout"]
+    
+    FirmAdd --> IterateNext["Move to Next Field"]
+    BitAdd --> IterateNext
+    FLVAdd --> IterateNext
+    
+    IterateNext --> Iterate
+    Iterate -->|No more fields| Done(["Execute std::meta::define_aggregate"])
+```
+
 ## Usage Example
 
 Defining a protocol is as simple as creating a C++ struct with declarative attributes. Aitvaras takes care of the rest at compile time.

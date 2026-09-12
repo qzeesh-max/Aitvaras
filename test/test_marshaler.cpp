@@ -182,6 +182,35 @@ TEST(MarshalerTest, ForEachMethods) {
     EXPECT_EQ(all_fields[4], "orderType");
 }
 
+/*
+// Compile-time failure test (Duplicate Bit Index)
+struct BadMessageBits {
+    uint8_t msgType;
+    uint32_t length;
+    uint32_t optionalFields;
+    
+    [[=aitvaras::non_fixed_bitmap{^^optionalFields, 0}]]
+    std::string_view memo;
+    
+    [[=aitvaras::non_fixed_bitmap{^^optionalFields, 0}]] // Duplicate bit!
+    uint8_t orderType;
+};
+// aitvaras::Marshaler<BadMessageBits> bad_proxy; // This fails to compile with "Duplicate bit index used for the same presence bitmap!"
+
+// Compile-time failure test (Duplicate TLV Tag)
+struct BadMessageTlv {
+    uint8_t msgType;
+    uint32_t length;
+    
+    [[=aitvaras::tlv_appendage{1}]]
+    std::string_view memo;
+    
+    [[=aitvaras::tlv_appendage{1}]] // Duplicate tag!
+    std::string_view memo2;
+};
+// aitvaras::Marshaler<BadMessageTlv> bad_proxy2; // This fails to compile with "Duplicate tag identifier used for tlv appendage!"
+*/
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
