@@ -45,7 +45,7 @@ To test the extreme flexibility and capabilities of the Aitvaras framework, we i
 
 ## Compile-Time Code Generation Workflow
 
-Aitvaras evaluates your protocol structures at compile time to build highly-optimized marshaler layouts. The diagram below details the steps the framework takes as it encounters firm (fixed), bit-presence, and dynamic FLV (TLV) fields.
+Aitvaras evaluates your protocol structures at compile time to build highly-optimized marshaler layouts. The diagram below details the steps the framework takes as it encounters firm (fixed), bit-presence, and dynamic TLV fields.
 
 ```mermaid
 flowchart TD
@@ -64,16 +64,16 @@ flowchart TD
     BitValidate -->|Yes| BitGenerate["Generate FieldProxy"]
     BitGenerate --> BitAdd["Add FieldProxy to GeneratedProxy layout"]
     
-    %% FLV (TLV) Field Path
-    FieldCheck -->|"FLV Field"| FLVPath["Has [[=tlv_appendage]] attribute"]
-    FLVPath --> FLVValidate{"Is tag unique?"}
-    FLVValidate -->|No| FLVThrow["Throw Compile-Time Error"]
-    FLVValidate -->|Yes| FLVGenerate["Generate FieldProxy"]
-    FLVGenerate --> FLVAdd["Add FieldProxy to GeneratedProxy layout"]
+    %% TLV Field Path
+    FieldCheck -->|"TLV Field"| TLVPath["Has [[=tlv_appendage]] attribute"]
+    TLVPath --> TLVValidate{"Is tag unique?"}
+    TLVValidate -->|No| TLVThrow["Throw Compile-Time Error"]
+    TLVValidate -->|Yes| TLVGenerate["Generate FieldProxy"]
+    TLVGenerate --> TLVAdd["Add FieldProxy to GeneratedProxy layout"]
     
     FirmAdd --> IterateNext["Move to Next Field"]
     BitAdd --> IterateNext
-    FLVAdd --> IterateNext
+    TLVAdd --> IterateNext
     
     IterateNext --> Iterate
     Iterate -->|No more fields| Done(["Execute std::meta::define_aggregate"])
