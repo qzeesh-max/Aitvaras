@@ -31,3 +31,7 @@ gtest_discover_tests(test_marshaler)
 add_executable(test_protocols test/test_protocols.cpp test/test_protocols_generated.cpp)
 target_link_libraries(test_protocols PRIVATE aitvaras gtest_main)
 gtest_discover_tests(test_protocols)
+
+add_executable(test_appendage_lifecycle test/test_appendage_lifecycle.cpp)
+target_link_libraries(test_appendage_lifecycle PRIVATE aitvaras gtest_main)
+gtest_discover_tests(test_appendage_lifecycle)
