@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 #include <aitvaras/marshaler.hpp>
-#include "protocols.hpp"
 
 using namespace aitvaras;
 
@@ -112,4 +111,30 @@ TEST(MarshalerTest, ReflectionSizes) {
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
+}
+
+struct [[=aitvaras::big_endian{}]] BigEndianTestMsg {
+    uint32_t a;
+    [[=aitvaras::little_endian{}]] uint16_t b;
+};
+
+TEST(MarshalerTest, BigEndianStruct) {
+    char buffer[6] = {0};
+    aitvaras::Marshaler<BigEndianTestMsg> proxy{{std::span<char>(buffer, sizeof(buffer))}};
+    proxy.a = 0xAABBCCDD; // Should be swapped to DD CC BB AA since native is little endian
+    proxy.b = 0x1122;     // Should NOT be swapped since native is little endian
+
+    EXPECT_EQ(static_cast<uint8_t>(buffer[0]), 0xAA);
+    EXPECT_EQ(static_cast<uint8_t>(buffer[1]), 0xBB);
+    EXPECT_EQ(static_cast<uint8_t>(buffer[2]), 0xCC);
+    EXPECT_EQ(static_cast<uint8_t>(buffer[3]), 0xDD);
+    
+    EXPECT_EQ(static_cast<uint8_t>(buffer[4]), 0x22);
+    EXPECT_EQ(static_cast<uint8_t>(buffer[5]), 0x11);
+    
+    uint32_t val_a = proxy.a;
+    EXPECT_EQ(val_a, 0xAABBCCDD);
+    
+    uint16_t val_b = proxy.b;
+    EXPECT_EQ(val_b, 0x1122);
 }

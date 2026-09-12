@@ -47,7 +47,8 @@ struct tlv_appendage {
 
 struct tlv_region_length {};
 
-struct endian_swap {};
+struct little_endian {};
+struct big_endian {};
 
 } // namespace aitvaras
 
