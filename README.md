@@ -6,6 +6,11 @@
 
 Aitvaras is a modern, zero-allocation binary protocol marshaling framework written in C++26. It leverages compile-time reflection (`std::meta`) to provide a declarative, robust, and highly performant way to marshal and unmarshal complex binary protocols.
 
+### The Mythos & Logo
+In Lithuanian mythology, an **Aitvaras** is a supernatural nature spirit—often taking the form of a rooster, a flying dragon, or a flaming meteorite—that brings wealth, fortune, and treasure to its master with incredible speed and agility. 
+
+We chose this name because the framework is designed to bring you the "treasure" of ultra-low latency parsing and zero-allocation binary data extraction with the raw speed of C++26. The glowing, fast-moving logo embodies this blistering speed, agility, and the "magical" ease with which the framework seamlessly unpacks complex binary formats using compile-time reflection.
+
 ## Key Features
 
 - **Zero-Allocation**: Works entirely with memory spans (`std::span`), allowing for parsing and serialization without any dynamic heap allocations.
