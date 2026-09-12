@@ -14,11 +14,11 @@ TEST(RakeTest, LogonRequestRoundTrip) {
     char buffer[256] = {0};
     {
         Marshaler<RakeLogonRequest> req{{std::span<char>(buffer, sizeof(buffer))}};
-        EXPECT_TRUE((req.messageType        = '5').has_value());
-        EXPECT_TRUE((req.session            = 0xDEADBEEFCAFEBABEULL).has_value());
-        EXPECT_TRUE((req.senderComp         = "MYSEND").has_value());
-        EXPECT_TRUE((req.token              = "MYTOKEN").has_value());
-        EXPECT_TRUE((req.nextSequenceNumber = 42ULL).has_value());
+        req.messageType = '5';
+        req.session = 0xDEADBEEFCAFEBABEULL;
+        req.senderComp = "MYSEND";
+        req.token = "MYTOKEN";
+        req.nextSequenceNumber = 42ULL;
         (void)(req.length = static_cast<uint16_t>(req.state_.total_size_ - 2));
 
         // fixed: 2 + 1 + 8 + 8 + 8 + 8 = 35
@@ -38,9 +38,9 @@ TEST(RakeTest, TcpSequencedMessage) {
     char buffer[256] = {0};
     {
         Marshaler<RakeTcpSequencedMessage> msg{{std::span<char>(buffer, sizeof(buffer))}};
-        EXPECT_TRUE((msg.messageType = '2').has_value());
-        EXPECT_TRUE((msg.streamId    = 3).has_value());
-        EXPECT_TRUE((msg.payload     = std::span<const uint8_t>(payload, sizeof(payload))).has_value());
+        msg.messageType = '2';
+        msg.streamId = 3;
+        msg.payload = std::span<const uint8_t>(payload, sizeof(payload));
         (void)(msg.length = static_cast<uint16_t>(msg.state_.total_size_ - 2));
 
         // 2 (length) + 1 (type) + 1 (streamId) + 5 (payload) = 9
@@ -61,8 +61,8 @@ TEST(RakeTest, DebugMessage) {
     char buffer[256] = {0};
     {
         Marshaler<RakeDebug> msg{{std::span<char>(buffer, sizeof(buffer))}};
-        EXPECT_TRUE((msg.messageType = '0').has_value());
-        EXPECT_TRUE((msg.payload     = "Hello debug!").has_value());
+        msg.messageType = '0';
+        msg.payload = "Hello debug!";
         (void)(msg.length = static_cast<uint16_t>(msg.state_.total_size_ - 2));
 
         EXPECT_EQ(msg.state_.total_size_, 15u);  // 2+1+12
@@ -80,11 +80,11 @@ TEST(SoupTest, LoginRequestRoundTrip) {
     char buffer[256] = {0};
     {
         Marshaler<SoupLoginRequest> req{{std::span<char>(buffer, sizeof(buffer))}};
-        EXPECT_TRUE((req.packetType              = 'L').has_value());
-        EXPECT_TRUE((req.username                = "USER01").has_value());
-        EXPECT_TRUE((req.password                = "PASS01").has_value());
-        EXPECT_TRUE((req.requestedSession        = "SESSION1").has_value());
-        EXPECT_TRUE((req.requestedSequenceNumber = "1").has_value());
+        req.packetType = 'L';
+        req.username = "USER01";
+        req.password = "PASS01";
+        req.requestedSession = "SESSION1";
+        req.requestedSequenceNumber = "1";
         (void)(req.length = static_cast<uint16_t>(req.state_.total_size_ - 2));
 
         // 2 + 1 + 6 + 10 + 10 + 20 = 49
@@ -102,8 +102,8 @@ TEST(SoupTest, SequencedDataRoundTrip) {
     char buffer[256] = {0};
     {
         Marshaler<SoupSequencedData> msg{{std::span<char>(buffer, sizeof(buffer))}};
-        EXPECT_TRUE((msg.packetType = 'S').has_value());
-        EXPECT_TRUE((msg.message = std::span<const uint8_t>(ouch_bytes, sizeof(ouch_bytes))).has_value());
+        msg.packetType = 'S';
+        msg.message = std::span<const uint8_t>(ouch_bytes, sizeof(ouch_bytes));
         (void)(msg.length = static_cast<uint16_t>(msg.state_.total_size_ - 2));
 
         // 2 + 1 + 5 = 8
@@ -127,18 +127,18 @@ static size_t build_enter_order(char* buf, size_t bufsz,
                                 std::string_view symbol,
                                 double price) {
     Marshaler<OuchEnterOrder> o{{std::span<char>(buf, bufsz)}};
-    (void)(o.type = 'O');
-    (void)(o.userRefNum = userRefNum);
-    (void)(o.side = 'B');
-    (void)(o.quantity = 100);
-    (void)(o.symbol = symbol);
-    (void)(o.price = price);
-    (void)(o.timeInForce = '0');
-    (void)(o.display = 'Y');
-    (void)(o.capacity = 'A');
-    (void)(o.interMarketSweepEligibility = 'N');
-    (void)(o.crossType = 'N');
-    (void)(o.clOrdID = "CLIENT1");
+    o.type = 'O';
+    o.userRefNum = userRefNum;
+    o.side = 'B';
+    o.quantity = 100;
+    o.symbol = symbol;
+    o.price = price;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "CLIENT1";
     return o.state_.total_size_;
 }
 
@@ -167,18 +167,18 @@ TEST(OuchTest, EnterOrder_NoAppendages) {
 TEST(OuchTest, EnterOrder_OneAppendage_Firm) {
     char buffer[1024] = {0};
     Marshaler<OuchEnterOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.type = 'O');
-    (void)(o.userRefNum = 99);
-    (void)(o.side = 'S');
-    (void)(o.quantity = 200);
-    (void)(o.symbol = "TSLA");
-    (void)(o.price = 250.0);
-    (void)(o.timeInForce = '0');
-    (void)(o.display = 'Y');
-    (void)(o.capacity = 'A');
-    (void)(o.interMarketSweepEligibility = 'N');
-    (void)(o.crossType = 'N');
-    (void)(o.clOrdID = "ORDER2");
+    o.type = 'O';
+    o.userRefNum = 99;
+    o.side = 'S';
+    o.quantity = 200;
+    o.symbol = "TSLA";
+    o.price = 250.0;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "ORDER2";
 
     EXPECT_TRUE((o.appendageFirm = "FIRM").has_value());
 
@@ -201,18 +201,18 @@ TEST(OuchTest, EnterOrder_MultipleAppendages_AnyOrder) {
     // Tags appear out of numeric order — the framework must resolve by tag ID, not by position
     char buffer[1024] = {0};
     Marshaler<OuchEnterOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.type = 'O');
-    (void)(o.userRefNum = 7);
-    (void)(o.side = 'B');
-    (void)(o.quantity = 300);
-    (void)(o.symbol = "GOOGL");
-    (void)(o.price = 100.0);
-    (void)(o.timeInForce = '0');
-    (void)(o.display = 'Y');
-    (void)(o.capacity = 'A');
-    (void)(o.interMarketSweepEligibility = 'N');
-    (void)(o.crossType = 'N');
-    (void)(o.clOrdID = "ORD3");
+    o.type = 'O';
+    o.userRefNum = 7;
+    o.side = 'B';
+    o.quantity = 300;
+    o.symbol = "GOOGL";
+    o.price = 100.0;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "ORD3";
 
     EXPECT_TRUE((o.appendageRoute  = "ROUT").has_value());
     EXPECT_TRUE((o.appendageMinQty = 10).has_value());
@@ -244,18 +244,18 @@ TEST(OuchTest, EnterOrder_UpdateAppendage_Resize) {
     // Write an appendage, then overwrite with a longer value; verify memmove correctness
     char buffer[1024] = {0};
     Marshaler<OuchEnterOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.type = 'O');
-    (void)(o.userRefNum = 5);
-    (void)(o.side = 'B');
-    (void)(o.quantity = 50);
-    (void)(o.symbol = "IBM");
-    (void)(o.price = 125.0);
-    (void)(o.timeInForce = '0');
-    (void)(o.display = 'Y');
-    (void)(o.capacity = 'A');
-    (void)(o.interMarketSweepEligibility = 'N');
-    (void)(o.crossType = 'N');
-    (void)(o.clOrdID = "UPDT");
+    o.type = 'O';
+    o.userRefNum = 5;
+    o.side = 'B';
+    o.quantity = 50;
+    o.symbol = "IBM";
+    o.price = 125.0;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "UPDT";
 
     // Also add a second appendage so we can verify memmove didn't corrupt it
     EXPECT_TRUE((o.appendageFirm = "ZZZZ").has_value());
@@ -284,15 +284,15 @@ TEST(OuchTest, EnterOrder_UpdateAppendage_Resize) {
 TEST(OuchTest, ReplaceOrder_WithAppendage) {
     char buffer[1024] = {0};
     Marshaler<OuchReplaceOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.type = 'U');
-    (void)(o.origUserRefNum = 10);
-    (void)(o.userRefNum = 11);
-    (void)(o.quantity = 150);
-    (void)(o.price = 75.25);
-    (void)(o.timeInForce = '0');
-    (void)(o.display = 'Y');
-    (void)(o.interMarketSweepEligibility = 'N');
-    (void)(o.clOrdID = "REPL1");
+    o.type = 'U';
+    o.origUserRefNum = 10;
+    o.userRefNum = 11;
+    o.quantity = 150;
+    o.price = 75.25;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.interMarketSweepEligibility = 'N';
+    o.clOrdID = "REPL1";
 
     EXPECT_TRUE((o.appendageHandleInst = 0x07).has_value());
 
@@ -311,9 +311,9 @@ TEST(OuchTest, ReplaceOrder_WithAppendage) {
 TEST(OuchTest, CancelOrder_NoAppendages) {
     char buffer[512] = {0};
     Marshaler<OuchCancelOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.type = 'X');
-    (void)(o.userRefNum = 42);
-    (void)(o.quantity = 0);
+    o.type = 'X';
+    o.userRefNum = 42;
+    o.quantity = 0;
 
     // 1 + 4 + 4 + 2 = 11
     EXPECT_EQ(o.state_.total_size_, 11u);
@@ -327,13 +327,13 @@ TEST(OuchTest, CancelOrder_NoAppendages) {
 TEST(OuchTest, OrderExecuted_RoundTrip) {
     char buffer[512] = {0};
     Marshaler<OuchOrderExecuted> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.type = 'E');
-    (void)(o.timestamp = 9876543210ULL);
-    (void)(o.userRefNum = 55);
-    (void)(o.quantity = 100);
-    (void)(o.price = 99.99);
-    (void)(o.liquidityFlag = 'A');
-    (void)(o.matchNumber = 111222333ULL);
+    o.type = 'E';
+    o.timestamp = 9876543210ULL;
+    o.userRefNum = 55;
+    o.quantity = 100;
+    o.price = 99.99;
+    o.liquidityFlag = 'A';
+    o.matchNumber = 111222333ULL;
 
     size_t sz = o.state_.total_size_;
     Marshaler<OuchOrderExecuted, true> reader{{std::span<const char>(buffer, sz)}};
@@ -348,12 +348,12 @@ TEST(OuchTest, OrderExecuted_RoundTrip) {
 TEST(OuchTest, BrokenTrade_WithAppendage) {
     char buffer[1024] = {0};
     Marshaler<OuchBrokenTrade> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.type = 'B');
-    (void)(o.timestamp = 112233445566ULL);
-    (void)(o.userRefNum = 88);
-    (void)(o.matchNumber = 77777ULL);
-    (void)(o.reason = 'E');
-    (void)(o.clOrdID = "BRK1");
+    o.type = 'B';
+    o.timestamp = 112233445566ULL;
+    o.userRefNum = 88;
+    o.matchNumber = 77777ULL;
+    o.reason = 'E';
+    o.clOrdID = "BRK1";
 
     EXPECT_TRUE((o.appendageSecondaryOrdRefNum = 0x012345).has_value());
 
@@ -374,12 +374,12 @@ TEST(OuchTest, BrokenTrade_WithAppendage) {
 TEST(SeedTest, LimitOrder_NoOptionalFields) {
     char buffer[1024] = {0};
     Marshaler<SeedLimitOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.messageType = 0x4C);  // 'L'
-    (void)(o.clOrdId = 100ULL);
-    (void)(o.orderQty = 1000);
-    (void)(o.limitOrderBitFields = 0x00000001u);
-    (void)(o.symbolId = 42);
-    (void)(o.price = 50.0);
+    o.messageType = 0x4C;  // 'L'
+    o.clOrdId = 100ULL;
+    o.orderQty = 1000;
+    o.limitOrderBitFields = 0x00000001u;
+    o.symbolId = 42;
+    o.price = 50.0;
 
     // Fixed: 1+4+8+4+4+2+8 = 31
     EXPECT_EQ(o.state_.total_size_, 31u);
@@ -401,12 +401,12 @@ TEST(SeedTest, LimitOrder_SelectiveOptionalFields) {
     // Set only expireTime (bit 8) and mpid (bit 10) — skip rest
     char buffer[1024] = {0};
     Marshaler<SeedLimitOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.messageType = 0x4C);
-    (void)(o.clOrdId = 300ULL);
-    (void)(o.orderQty = 100);
-    (void)(o.limitOrderBitFields = 0u);
-    (void)(o.symbolId = 1);
-    (void)(o.price = 10.0);
+    o.messageType = 0x4C;
+    o.clOrdId = 300ULL;
+    o.orderQty = 100;
+    o.limitOrderBitFields = 0u;
+    o.symbolId = 1;
+    o.price = 10.0;
 
     EXPECT_TRUE((o.expireTime = 555555ULL).has_value());  // bit 8
     EXPECT_TRUE((o.mpid = "XYZ").has_value());             // bit 10
@@ -439,12 +439,12 @@ TEST(SeedTest, LimitOrder_SelectiveOptionalFields) {
 TEST(SeedTest, LimitOrder_AllOptionalFields) {
     char buffer[2048] = {0};
     Marshaler<SeedLimitOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.messageType = 0x4C);
-    (void)(o.clOrdId = 200ULL);
-    (void)(o.orderQty = 500);
-    (void)(o.limitOrderBitFields = 0x00000001u);
-    (void)(o.symbolId = 7);
-    (void)(o.price = 123.45);
+    o.messageType = 0x4C;
+    o.clOrdId = 200ULL;
+    o.orderQty = 500;
+    o.limitOrderBitFields = 0x00000001u;
+    o.symbolId = 7;
+    o.price = 123.45;
 
     EXPECT_TRUE((o.selfMatchScope        = 1).has_value());
     EXPECT_TRUE((o.selfMatchInstruction  = 2).has_value());
@@ -497,11 +497,11 @@ TEST(SeedTest, LimitOrder_AllOptionalFields) {
 TEST(SeedTest, MarketOrder_WithMpidAndGroup) {
     char buffer[512] = {0};
     Marshaler<SeedMarketOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.messageType = 0x4D);
-    (void)(o.clOrdId = 400ULL);
-    (void)(o.orderQty = 200);
-    (void)(o.marketOrderBitFields = 0x00000002u);
-    (void)(o.symbolId = 5);
+    o.messageType = 0x4D;
+    o.clOrdId = 400ULL;
+    o.orderQty = 200;
+    o.marketOrderBitFields = 0x00000002u;
+    o.symbolId = 5;
     EXPECT_TRUE((o.mpid = "NEST").has_value());       // bit 5
     EXPECT_TRUE((o.memberGroup = "A1").has_value());  // bit 6
 
@@ -526,12 +526,12 @@ TEST(SeedTest, MarketOrder_WithMpidAndGroup) {
 TEST(SeedTest, ReplaceOrder_WithOptionals) {
     char buffer[512] = {0};
     Marshaler<SeedReplaceOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.messageType = 0x52);
-    (void)(o.clOrdId = 501ULL);
-    (void)(o.origClOrdId = 500ULL);
-    (void)(o.orderQty = 250);
-    (void)(o.replaceOrderBitFields = 0u);
-    (void)(o.price = 88.88);
+    o.messageType = 0x52;
+    o.clOrdId = 501ULL;
+    o.origClOrdId = 500ULL;
+    o.orderQty = 250;
+    o.replaceOrderBitFields = 0u;
+    o.price = 88.88;
 
     EXPECT_TRUE((o.minQty = 5).has_value());       // bit 0
     EXPECT_TRUE((o.maxFloorQty = 50).has_value()); // bit 1
@@ -560,9 +560,9 @@ TEST(SeedTest, ReplaceOrder_WithOptionals) {
 TEST(SeedTest, CancelOrder_RoundTrip) {
     char buffer[256] = {0};
     Marshaler<SeedCancelOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.messageType = 0x43);
-    (void)(o.clOrdId = 600ULL);
-    (void)(o.origClOrdId = 599ULL);
+    o.messageType = 0x43;
+    o.clOrdId = 600ULL;
+    o.origClOrdId = 599ULL;
 
     // Fixed: 1+4+8+8 = 21
     EXPECT_EQ(o.state_.total_size_, 21u);
@@ -576,15 +576,15 @@ TEST(SeedTest, CancelOrder_RoundTrip) {
 TEST(SeedTest, OrderRestated_SelectiveOptionals) {
     char buffer[512] = {0};
     Marshaler<SeedOrderRestated> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.messageType = 0x52);
-    (void)(o.clOrdId = 800ULL);
-    (void)(o.orderId = 80001ULL);
-    (void)(o.timestamp = 2000000000ULL);
-    (void)(o.restatementReason = 0x01u);
+    o.messageType = 0x52;
+    o.clOrdId = 800ULL;
+    o.orderId = 80001ULL;
+    o.timestamp = 2000000000ULL;
+    o.restatementReason = 0x01u;
 
     // Set leavesQty (bit 0) and pegPrice (bit 3); skip displayQty (bit 1) and displayPrice (bit 2)
-    EXPECT_TRUE((o.leavesQty = 250).has_value());
-    EXPECT_TRUE((o.pegPrice  = 77.77).has_value());
+    o.leavesQty = 250;
+    o.pegPrice = 77.77;
 
     uint32_t pbits = o.presenceBits.get();
     EXPECT_TRUE(pbits & (1u << 0));   // leavesQty
@@ -610,15 +610,15 @@ TEST(SeedTest, OrderRestated_SelectiveOptionals) {
 TEST(SeedTest, OrderExecuted_RoundTrip) {
     char buffer[512] = {0};
     Marshaler<SeedOrderExecuted> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.messageType = 0x45);
-    (void)(o.clOrdId = 700ULL);
-    (void)(o.orderId = 70001ULL);
-    (void)(o.timestamp = 1000000000ULL);
-    (void)(o.execId = 9999ULL);
-    (void)(o.lastQty = 100);
-    (void)(o.lastPx  = 55.55);
-    (void)(o.leavesQty = 0);
-    (void)(o.liquidityIndicator = 0x01);
+    o.messageType = 0x45;
+    o.clOrdId = 700ULL;
+    o.orderId = 70001ULL;
+    o.timestamp = 1000000000ULL;
+    o.execId = 9999ULL;
+    o.lastQty = 100;
+    o.lastPx  = 55.55;
+    o.leavesQty = 0;
+    o.liquidityIndicator = 0x01;
 
     size_t sz = o.state_.total_size_;
     Marshaler<SeedOrderExecuted, true> reader{{std::span<const char>(buffer, sz)}};
@@ -632,12 +632,12 @@ TEST(SeedTest, OrderExecuted_RoundTrip) {
 TEST(SeedTest, MassCancelRoundTrip) {
     char buffer[256] = {0};
     Marshaler<SeedMassCancel> o{{std::span<char>(buffer, sizeof(buffer))}};
-    (void)(o.messageType = 0x4D);
-    (void)(o.clOrdId = 900ULL);
-    (void)(o.massCancelScope = 1);
-    (void)(o.symbolId = 0);  // all symbols
-    (void)(o.mpid = "FIRM");
-    (void)(o.memberGroup = "G1");
+    o.messageType = 0x4D;
+    o.clOrdId = 900ULL;
+    o.massCancelScope = 1;
+    o.symbolId = 0;  // all symbols
+    o.mpid = "FIRM";
+    o.memberGroup = "G1";
 
     size_t sz = o.state_.total_size_;
     Marshaler<SeedMassCancel, true> reader{{std::span<const char>(buffer, sz)}};

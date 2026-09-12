@@ -486,8 +486,8 @@ namespace detail {
         }
         
         template <std::meta::info field, typename T>
-        std::expected<void, const char*> set(T&& val) {
-            if constexpr (ForReading) return std::unexpected("Cannot set in ForReading mode");
+        requires (!ForReading)
+        auto set(T&& val) {
             using FieldType = typename [: std::meta::type_of(field) :];
             
             if constexpr (is_tlv_field<field>()) {
@@ -510,7 +510,7 @@ namespace detail {
                     size_t new_offset = total_size_;
                     size_t frame_size = 2 + req_size;
                     if (new_offset + frame_size > buffer_.size()) {
-                        return std::unexpected("Buffer overflow");
+                        return std::expected<void, const char*>(std::unexpected("Buffer overflow"));
                     }
                     
                     buffer_[new_offset] = static_cast<char>(req_size + 1);
@@ -541,7 +541,7 @@ namespace detail {
                     intptr_t diff = static_cast<intptr_t>(req_size) - static_cast<intptr_t>(old_len);
                     if (diff != 0) {
                         if (total_size_ + diff > buffer_.size()) {
-                            return std::unexpected("Buffer overflow");
+                            return std::expected<void, const char*>(std::unexpected("Buffer overflow"));
                         }
                         size_t downstream_start = old_offset + old_len;
                         size_t downstream_len = total_size_ - downstream_start;
@@ -577,7 +577,7 @@ namespace detail {
                         this->template _set_fixed<field>(old_offset, std::forward<T>(val));
                     }
                 }
-                return {};
+                return std::expected<void, const char*>{};
             }
 
             size_t offset = get_field_offset<field>();
@@ -600,7 +600,7 @@ namespace detail {
                         intptr_t diff = static_cast<intptr_t>(new_size) - static_cast<intptr_t>(old_size);
                         
                         if (total_size_ + diff > buffer_.size()) {
-                            return std::unexpected("Buffer overflow");
+                            return std::expected<void, const char*>(std::unexpected("Buffer overflow"));
                         }
                         
                         size_t end_of_current = offset + old_size;
@@ -642,7 +642,7 @@ namespace detail {
                         this->template _set_fixed<field>(offset, std::forward<T>(val));
                     }
                     
-                    return {};
+                    return std::expected<void, const char*>{};
                 } else if constexpr (has_annotation<non_fixed_bitmap, field>()) {
                     size_t new_size = get_fixed_field_size<field>();
                     
@@ -650,7 +650,7 @@ namespace detail {
                         intptr_t diff = new_size - old_size;
                         
                         if (total_size_ + diff > buffer_.size()) {
-                            return std::unexpected("Buffer overflow");
+                            return std::expected<void, const char*>(std::unexpected("Buffer overflow"));
                         }
                         
                         size_t end_of_current = offset + old_size;
@@ -700,19 +700,18 @@ namespace detail {
                         }
                     }
                     this->template _set_fixed<field>(offset, std::forward<T>(val));
-                    return {};
+                    return std::expected<void, const char*>{};
+                } else {
+                    return std::expected<void, const char*>(std::unexpected("Invalid variable field setup"));
                 }
             } else {
                 this->template _set_fixed<field>(offset, std::forward<T>(val));
-                return {};
             }
-            return std::unexpected("Invalid variable field setup");
         }
 
         template <std::meta::info field>
+        requires (!ForReading)
         std::expected<void, const char*> remove() {
-            if constexpr (ForReading) return std::unexpected("Cannot remove in ForReading mode");
-            
             if constexpr (is_tlv_field<field>()) {
                 size_t idx        = get_tlv_field_index<field>();
                 size_t old_offset = tlv_offsets_[idx];
@@ -855,11 +854,12 @@ namespace detail {
         }
         
         template <typename T>
-        std::expected<void, const char*> operator=(T&& val) {
+        requires (!ForReading)
+        auto operator=(T&& val) {
             return parent()->state_.template set<field>(std::forward<T>(val));
         }
 
-        std::expected<void, const char*> remove() {
+        auto remove() requires (!ForReading) {
             return parent()->state_.template remove<field>();
         }
         
