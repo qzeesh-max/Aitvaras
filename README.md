@@ -1,7 +1,7 @@
 # Aitvaras
 
 <div align="center">
-  <video src="assets/aitvaras_logo.mp4" width="100%" autoplay loop controls muted></video>
+  <img src="assets/aitvaras_logo.gif" width="100%" alt="Aitvaras">
 </div>
 
 Aitvaras is a modern, zero-allocation binary protocol marshaling framework written in C++26. It leverages compile-time reflection (`std::meta`) to provide a declarative, robust, and highly performant way to marshal and unmarshal complex binary protocols.
