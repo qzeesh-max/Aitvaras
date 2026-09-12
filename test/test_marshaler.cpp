@@ -107,8 +107,9 @@ TEST(MarshalerTest, ReflectionSizes) {
     EXPECT_TRUE(res3.has_value());
     
     // Read it back
-    std::string_view memo_val = proxy.memo;
-    EXPECT_EQ(memo_val, "Some order memo");
+    std::optional<std::string_view> memo_val = proxy.memo;
+    EXPECT_TRUE(memo_val.has_value());
+    EXPECT_EQ(*memo_val, "Some order memo");
     
     // Set a non_fixed_bitmap enum field
     auto res4 = (proxy.orderType = OrderType::Market);
@@ -116,7 +117,7 @@ TEST(MarshalerTest, ReflectionSizes) {
     
     // Check that the bitmask was updated
     uint32_t opt_fields = proxy.optionalFields.get();
-    EXPECT_EQ(opt_fields, (1 << 1)); // bit 1 should be set, memo uses length_precedes
+    EXPECT_EQ(opt_fields, 3); // bits 0 and 1 should be set
     
     // Check that we can read it back
     auto order_type_val = proxy.orderType.get();
