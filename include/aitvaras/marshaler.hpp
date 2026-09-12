@@ -578,7 +578,7 @@ namespace detail {
                 }
                 return {};
             }
-            
+
             size_t offset = get_field_offset<field>();
             
             if constexpr (is_variable_field<field>()) {
@@ -708,6 +708,58 @@ namespace detail {
             return std::unexpected("Invalid variable field setup");
         }
 
+        template <std::meta::info field>
+        std::expected<void, const char*> remove() {
+            if constexpr (ForReading) return std::unexpected("Cannot remove in ForReading mode");
+            if constexpr (!is_tlv_field<field>()) return std::unexpected("remove() only valid for tlv_appendage fields");
+
+            size_t idx        = get_tlv_field_index<field>();
+            size_t old_offset = tlv_offsets_[idx];
+            size_t old_len    = tlv_sizes_[idx];
+
+            if (old_offset == 0) return {};  // already absent — no-op
+
+            // Full TLV frame: [len_byte][tag_byte][value...]
+            size_t frame_start = old_offset - 2;
+            size_t frame_size  = 2 + old_len;
+
+            // Slide everything after this frame backwards to fill the gap
+            size_t downstream_start = frame_start + frame_size;
+            size_t downstream_len   = total_size_ - downstream_start;
+            if (downstream_len > 0) {
+                std::memmove(buffer_.data() + frame_start,
+                             buffer_.data() + downstream_start,
+                             downstream_len);
+            }
+            // Zero the vacated tail so the buffer is deterministic
+            std::memset(buffer_.data() + total_size_ - frame_size, 0, frame_size);
+
+            total_size_ -= frame_size;
+
+            // Adjust offsets of all TLV fields that were located after this frame
+            for (size_t i = 0; i < NumTLVFields; i++) {
+                if (tlv_offsets_[i] >= downstream_start) {
+                    tlv_offsets_[i] -= frame_size;
+                }
+            }
+
+            // Clear this field's tracking slot
+            tlv_offsets_[idx] = 0;
+            tlv_sizes_[idx]   = 0;
+
+            // Decrement the region-length counter stored in the fixed header
+            static constexpr auto mems = std::define_static_array(std::meta::members_of(^^Definition, std::meta::access_context::current()));
+            template for (constexpr auto m : mems) {
+                if constexpr (std::meta::is_nonstatic_data_member(m)) {
+                    if constexpr (has_annotation<tlv_region_length, m>()) {
+                        auto cur = this->template _get_fixed<m>(this->template get_field_offset<m>());
+                        this->template _set_fixed<m>(this->template get_field_offset<m>(), cur - frame_size);
+                    }
+                }
+            }
+
+            return {};
+        }
 
     };
     
@@ -749,6 +801,10 @@ namespace detail {
         template <typename T>
         std::expected<void, const char*> operator=(T&& val) {
             return parent()->state_.template set<field>(std::forward<T>(val));
+        }
+
+        std::expected<void, const char*> remove() {
+            return parent()->state_.template remove<field>();
         }
         
         operator auto() const {
