@@ -13,6 +13,7 @@
 #include <tuple>
 #include <vector>
 #include <array>
+#include <bit>
 #include <algorithm>
 #include "annotations.hpp"
 #include "utils.hpp"
@@ -41,6 +42,30 @@ namespace detail {
     consteval T get_annotation() {
         constexpr auto a = get_annotation_by_type<T, field>();
         return std::meta::extract<T>(a);
+    }
+    
+    template <std::meta::info field>
+    consteval bool needs_byteswap() {
+        bool field_big = has_annotation<big_endian, field>();
+        bool field_little = has_annotation<little_endian, field>();
+        
+        if (field_big) {
+            return std::endian::native == std::endian::little;
+        } else if (field_little) {
+            return std::endian::native == std::endian::big;
+        }
+        
+        constexpr auto parent_type = std::meta::parent_of(field);
+        bool struct_big = has_annotation<big_endian, parent_type>();
+        bool struct_little = has_annotation<little_endian, parent_type>();
+        
+        if (struct_big) {
+            return std::endian::native == std::endian::little;
+        } else if (struct_little) {
+            return std::endian::native == std::endian::big;
+        }
+        
+        return false;
     }
 
     template <std::meta::info field>
@@ -344,7 +369,7 @@ namespace detail {
                 std::memcpy(&v, buffer_.data() + offset, sizeof(FieldType));
                 
                 // Endian swap if required
-                if constexpr (has_annotation<endian_swap, field>()) {
+                if constexpr (needs_byteswap<field>()) {
                     if constexpr (std::is_enum_v<FieldType>) {
                         using UnderType = std::underlying_type_t<FieldType>;
                         v = static_cast<FieldType>(byteswap(static_cast<UnderType>(v)));
@@ -397,7 +422,7 @@ namespace detail {
                     FieldType v;
                     std::memcpy(&v, buffer_.data() + offset, sizeof(FieldType));
                     
-                    if constexpr (has_annotation<endian_swap, field>()) {
+                    if constexpr (needs_byteswap<field>()) {
                         if constexpr (std::is_enum_v<FieldType>) {
                             using UnderType = std::underlying_type_t<FieldType>;
                             v = static_cast<FieldType>(byteswap(static_cast<UnderType>(v)));
@@ -473,7 +498,7 @@ namespace detail {
                     v = static_cast<FieldType>(val);
                 }
                 
-                if constexpr (has_annotation<endian_swap, field>()) {
+                if constexpr (needs_byteswap<field>()) {
                     if constexpr (std::is_enum_v<FieldType>) {
                         using UnderType = std::underlying_type_t<FieldType>;
                         v = static_cast<FieldType>(byteswap(static_cast<UnderType>(v)));

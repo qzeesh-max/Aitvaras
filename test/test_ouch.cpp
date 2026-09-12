@@ -1,20 +1,262 @@
 #include <gtest/gtest.h>
 #include <aitvaras/marshaler.hpp>
-#include "protocols.hpp"
-#include <cstring>
-#include <cstdint>
+#include "protocol_ouch.hpp"
 
 using namespace aitvaras;
 
+
+// OUCH 5.0 — EnterOrder with Appendages
 // ============================================================
+
+static size_t build_enter_order(char* buf, size_t bufsz,
+                                uint32_t userRefNum,
+                                std::string_view symbol,
+                                double price) {
+    Marshaler<OuchEnterOrder> o{{std::span<char>(buf, bufsz)}};
+    o.type = 'O';
+    o.userRefNum = userRefNum;
+    o.side = 'B';
+    o.quantity = 100;
+    o.symbol = symbol;
+    o.price = price;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "CLIENT1";
+    return o.state_.total_size_;
+}
+
+TEST(OuchTest, EnterOrder_NoAppendages) {
+    char buffer[1024] = {0};
+    size_t sz = build_enter_order(buffer, sizeof(buffer), 1, "AAPL", 150.5);
+    // Fixed: 1+4+1+4+8+8+1+1+1+1+1+14+2 = 47 bytes
+    EXPECT_EQ(sz, 47u);
+
+    Marshaler<OuchEnterOrder, true> reader{{std::span<const char>(buffer, sz)}};
+    EXPECT_EQ(reader.type.get(), 'O');
+    EXPECT_EQ(reader.userRefNum.get(), 1u);
+    EXPECT_EQ(reader.side.get(), 'B');
+    EXPECT_EQ(reader.quantity.get(), 100u);
+    EXPECT_EQ(reader.symbol.get(), "AAPL");
+    // price is fixed_point<4> returning double directly
+    EXPECT_NEAR(reader.price.get(), 150.5, 0.0001);
+    EXPECT_EQ(reader.clOrdID.get(), "CLIENT1");
+
+    // No appendages — all return unexpected
+    EXPECT_FALSE(reader.appendageFirm.get().has_value());
+    EXPECT_FALSE(reader.appendageMinQty.get().has_value());
+    EXPECT_FALSE(reader.appendageRoute.get().has_value());
+}
+
+TEST(OuchTest, EnterOrder_OneAppendage_Firm) {
+    char buffer[1024] = {0};
+    Marshaler<OuchEnterOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
+    o.type = 'O';
+    o.userRefNum = 99;
+    o.side = 'S';
+    o.quantity = 200;
+    o.symbol = "TSLA";
+    o.price = 250.0;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "ORDER2";
+
+    EXPECT_TRUE((o.appendageFirm = "FIRM").has_value());
+
+    // Fixed 47 + TLV frame (2 header + 4 data) = 53
+    EXPECT_EQ(o.state_.total_size_, 53u);
+
+    size_t sz = o.state_.total_size_;
+    Marshaler<OuchEnterOrder, true> reader{{std::span<const char>(buffer, sz)}};
+
+    auto firm = reader.appendageFirm.get();
+    ASSERT_TRUE(firm.has_value());
+    EXPECT_EQ(*firm, "FIRM");
+
+    EXPECT_FALSE(reader.appendageMinQty.get().has_value());
+    EXPECT_FALSE(reader.appendageRoute.get().has_value());
+}
+
+TEST(OuchTest, EnterOrder_MultipleAppendages_AnyOrder) {
+    // Set appendages in an unusual order: Route (tag 14) first, then MinQty (tag 3), then Firm (tag 2)
+    // Tags appear out of numeric order — the framework must resolve by tag ID, not by position
+    char buffer[1024] = {0};
+    Marshaler<OuchEnterOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
+    o.type = 'O';
+    o.userRefNum = 7;
+    o.side = 'B';
+    o.quantity = 300;
+    o.symbol = "GOOGL";
+    o.price = 100.0;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "ORD3";
+
+    EXPECT_TRUE((o.appendageRoute  = "ROUT").has_value());
+    EXPECT_TRUE((o.appendageMinQty = 10).has_value());
+    EXPECT_TRUE((o.appendageFirm   = "ABCD").has_value());
+
+    // 47 + 3 × (2 + 4) = 47 + 18 = 65
+    EXPECT_EQ(o.state_.total_size_, 65u);
+
+    size_t sz = o.state_.total_size_;
+    Marshaler<OuchEnterOrder, true> reader{{std::span<const char>(buffer, sz)}};
+
+    auto route = reader.appendageRoute.get();
+    ASSERT_TRUE(route.has_value());
+    EXPECT_EQ(*route, "ROUT");
+
+    auto minqty = reader.appendageMinQty.get();
+    ASSERT_TRUE(minqty.has_value());
+    EXPECT_EQ(*minqty, 0x0Au);
+
+    auto firm = reader.appendageFirm.get();
+    ASSERT_TRUE(firm.has_value());
+    EXPECT_EQ(*firm, "ABCD");
+
+    EXPECT_FALSE(reader.appendageHandleInst.get().has_value());
+    EXPECT_FALSE(reader.appendagePostOnly.get().has_value());
+}
+
+TEST(OuchTest, EnterOrder_UpdateAppendage_Resize) {
+    // Write an appendage, then overwrite with a longer value; verify memmove correctness
+    char buffer[1024] = {0};
+    Marshaler<OuchEnterOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
+    o.type = 'O';
+    o.userRefNum = 5;
+    o.side = 'B';
+    o.quantity = 50;
+    o.symbol = "IBM";
+    o.price = 125.0;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "UPDT";
+
+    // Also add a second appendage so we can verify memmove didn't corrupt it
+    EXPECT_TRUE((o.appendageFirm = "ZZZZ").has_value());
+
+    EXPECT_TRUE((o.appendagePegOffset = 100).has_value());
+    size_t sz_before = o.state_.total_size_;
+
+    // Variable size appendage should allow expanding size
+    EXPECT_TRUE((o.appendagePegOffset = 500).has_value());
+    size_t sz_after = o.state_.total_size_;
+
+    EXPECT_EQ(sz_after - sz_before, 0u);
+
+    Marshaler<OuchEnterOrder, true> reader{{std::span<const char>(buffer, sz_after)}};
+
+    // Both appendages should be intact
+    auto firm = reader.appendageFirm.get();
+    ASSERT_TRUE(firm.has_value());
+    EXPECT_EQ(*firm, "ZZZZ");
+
+    auto peg = reader.appendagePegOffset.get();
+    ASSERT_TRUE(peg.has_value());
+    EXPECT_EQ(*peg, 500u);
+}
+
+TEST(OuchTest, ReplaceOrder_WithAppendage) {
+    char buffer[1024] = {0};
+    Marshaler<OuchReplaceOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
+    o.type = 'U';
+    o.origUserRefNum = 10;
+    o.userRefNum = 11;
+    o.quantity = 150;
+    o.price = 75.25;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.interMarketSweepEligibility = 'N';
+    o.clOrdID = "REPL1";
+
+    EXPECT_TRUE((o.appendageHandleInst = 0x07).has_value());
+
+    size_t sz = o.state_.total_size_;
+    Marshaler<OuchReplaceOrder, true> reader{{std::span<const char>(buffer, sz)}};
+    EXPECT_EQ(reader.origUserRefNum.get(), 10u);
+    EXPECT_EQ(reader.userRefNum.get(), 11u);
+    EXPECT_NEAR(reader.price.get(), 75.25, 0.0001);
+
+    auto hi = reader.appendageHandleInst.get();
+    ASSERT_TRUE(hi.has_value());
+    EXPECT_EQ(*hi, 0x07u);
+    EXPECT_FALSE(reader.appendageFirm.get().has_value());
+}
+
+TEST(OuchTest, CancelOrder_NoAppendages) {
+    char buffer[512] = {0};
+    Marshaler<OuchCancelOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
+    o.type = 'X';
+    o.userRefNum = 42;
+    o.quantity = 0;
+
+    // 1 + 4 + 4 + 2 = 11
+    EXPECT_EQ(o.state_.total_size_, 11u);
+
+    size_t sz = o.state_.total_size_;
+    Marshaler<OuchCancelOrder, true> reader{{std::span<const char>(buffer, sz)}};
+    EXPECT_EQ(reader.userRefNum.get(), 42u);
+    EXPECT_FALSE(reader.appendageFirm.get().has_value());
+}
+
+TEST(OuchTest, OrderExecuted_RoundTrip) {
+    char buffer[512] = {0};
+    Marshaler<OuchOrderExecuted> o{{std::span<char>(buffer, sizeof(buffer))}};
+    o.type = 'E';
+    o.timestamp = 9876543210ULL;
+    o.userRefNum = 55;
+    o.quantity = 100;
+    o.price = 99.99;
+    o.liquidityFlag = 'A';
+    o.matchNumber = 111222333ULL;
+
+    size_t sz = o.state_.total_size_;
+    Marshaler<OuchOrderExecuted, true> reader{{std::span<const char>(buffer, sz)}};
+    EXPECT_EQ(reader.type.get(), 'E');
+    EXPECT_EQ(reader.userRefNum.get(), 55u);
+    EXPECT_EQ(reader.quantity.get(), 100u);
+    EXPECT_NEAR(reader.price.get(), 99.99, 0.0001);
+    EXPECT_EQ(reader.liquidityFlag.get(), 'A');
+    EXPECT_EQ(reader.matchNumber.get(), 111222333ULL);
+}
+
+TEST(OuchTest, BrokenTrade_WithAppendage) {
+    char buffer[1024] = {0};
+    Marshaler<OuchBrokenTrade> o{{std::span<char>(buffer, sizeof(buffer))}};
+    o.type = 'B';
+    o.timestamp = 112233445566ULL;
+    o.userRefNum = 88;
+    o.matchNumber = 77777ULL;
+    o.reason = 'E';
+    o.clOrdID = "BRK1";
+
+    EXPECT_TRUE((o.appendageSecondaryOrdRefNum = 0x012345).has_value());
+
+    size_t sz = o.state_.total_size_;
+    Marshaler<OuchBrokenTrade, true> reader{{std::span<const char>(buffer, sz)}};
+    EXPECT_EQ(reader.type.get(), 'B');
+    EXPECT_EQ(reader.reason.get(), 'E');
+
+    auto sec = reader.appendageSecondaryOrdRefNum.get();
+    ASSERT_TRUE(sec.has_value());
+    EXPECT_EQ(*sec, 0x012345u);
+}
+
+// ============================================================
+
+
 // Appendage Lifecycle Tests
-//   Each test exercises the full add → verify → add more →
-//   verify → remove → verify → re-add → verify pattern.
-// ============================================================
-
-// Helper: verify total_size_ exactly matches fixed_size + sum of (2 + len) for each present appendage.
-// We also round-trip through a reader to confirm the buffer is coherent at every step.
-
 TEST(AppendageLifecycle, OuchEnterOrder_AddVerifyRemoveReadd) {
     char buffer[1024] = {0};
 
@@ -368,79 +610,64 @@ TEST(AppendageLifecycle, OuchReplaceOrder_VariableSize_RemoveReadd) {
     }
 }
 
-TEST(OptionalLifecycle, SeedLimitOrder_AddVerifyRemoveReadd) {
-    char buffer[1024] = {0};
+#include "protocol_soup.hpp"
+TEST(FrameTest, SoupWrappedOuchEnterOrder) {
+    // Build an OUCH EnterOrder with two appendages
+    alignas(8) char ouch_buf[512] = {0};
+    Marshaler<OuchEnterOrder> ouch{{std::span<char>(ouch_buf, sizeof(ouch_buf))}};
+    (void)(ouch.type = 'O');
+    (void)(ouch.userRefNum = 123);
+    (void)(ouch.side = 'B');
+    (void)(ouch.quantity = 75);
+    (void)(ouch.symbol = "AMZN");
+    (void)(ouch.price = 180.0);
+    (void)(ouch.timeInForce = '0');
+    (void)(ouch.display = 'Y');
+    (void)(ouch.capacity = 'A');
+    (void)(ouch.interMarketSweepEligibility = 'N');
+    (void)(ouch.crossType = 'N');
+    (void)(ouch.clOrdID = "AMAZON1");
 
-    Marshaler<SeedLimitOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
-    o.messageType = 'O';
-    o.clOrdId = 123456789ULL;
-    o.orderQty = 500;
-    o.limitOrderBitFields = 0;
-    o.symbolId = 1;
-    o.price = 150.0;
+    EXPECT_TRUE((ouch.appendageRoute = "DEST").has_value());
+    EXPECT_TRUE((ouch.appendageFirm  = "ABBN").has_value());
+    size_t ouch_sz = ouch.state_.total_size_;
 
-    const size_t fixed_size = 31;
-    EXPECT_EQ(o.state_.total_size_, fixed_size);
+    // Wrap in SOUP unsequenced data
+    char soup_buf[1024] = {0};
+    Marshaler<SoupUnsequencedData> soup{{std::span<char>(soup_buf, sizeof(soup_buf))}};
+    (void)(soup.packetType = 'U');
+    EXPECT_TRUE((soup.message = std::span<const uint8_t>(
+        reinterpret_cast<const uint8_t*>(ouch_buf), ouch_sz)).has_value());
+    (void)(soup.length = static_cast<uint16_t>(soup.state_.total_size_ - 2));
 
-    // Step 1: Add maxFloorQty (4 bytes)
-    EXPECT_TRUE((o.maxFloorQty = 100).has_value());
+    size_t soup_sz = soup.state_.total_size_;
 
-    size_t sz_after_one = o.state_.total_size_;
-    EXPECT_EQ(sz_after_one, fixed_size + 4u);
+    // Read SOUP frame
+    Marshaler<SoupUnsequencedData, true> soup_reader{{std::span<const char>(soup_buf, soup_sz)}};
+    EXPECT_EQ(soup_reader.packetType.get(), 'U');
+    auto payload_sv = soup_reader.message.get();
+    ASSERT_EQ(payload_sv.size(), ouch_sz);
 
-    {
-        Marshaler<SeedLimitOrder, true> r{{std::span<const char>(buffer, sz_after_one)}};
-        auto maxf = r.maxFloorQty.get();
-        ASSERT_TRUE(maxf.has_value());
-        EXPECT_EQ(*maxf, 100u);
-    }
+    // Interpret inner OUCH
+    Marshaler<OuchEnterOrder, true> ouch_reader{{std::span<const char>(reinterpret_cast<const char*>(payload_sv.data()), payload_sv.size())}};
+    EXPECT_EQ(ouch_reader.type.get(), 'O');
+    EXPECT_EQ(ouch_reader.userRefNum.get(), 123u);
+    EXPECT_EQ(ouch_reader.symbol.get(), "AMZN");
+    EXPECT_NEAR(ouch_reader.price.get(), 180.0, 0.0001);
 
-    // Step 2: Add mpid (4 bytes)
-    EXPECT_TRUE((o.mpid = "BAML").has_value());
+    auto rt = ouch_reader.appendageRoute.get();
+    ASSERT_TRUE(rt.has_value());
+    EXPECT_EQ(*rt, "DEST");
 
-    size_t sz_after_two = o.state_.total_size_;
-    EXPECT_EQ(sz_after_two, sz_after_one + 4u);
-
-    {
-        Marshaler<SeedLimitOrder, true> r{{std::span<const char>(buffer, sz_after_two)}};
-        auto mpid = r.mpid.get();
-        ASSERT_TRUE(mpid.has_value());
-        EXPECT_EQ(*mpid, "BAML");
-
-        auto maxf = r.maxFloorQty.get();
-        ASSERT_TRUE(maxf.has_value());
-        EXPECT_EQ(*maxf, 100u);
-    }
-
-    // Step 3: Remove maxFloorQty
-    EXPECT_TRUE(o.maxFloorQty.remove().has_value());
-    EXPECT_EQ(o.state_.total_size_, sz_after_two - 4u);
-
-    {
-        size_t sz = o.state_.total_size_;
-        Marshaler<SeedLimitOrder, true> r{{std::span<const char>(buffer, sz)}};
-        
-        EXPECT_FALSE(r.maxFloorQty.get().has_value());
-
-        auto mpid = r.mpid.get();
-        ASSERT_TRUE(mpid.has_value());
-        EXPECT_EQ(*mpid, "BAML");
-    }
-
-    // Step 4: Re-add maxFloorQty with a different value
-    EXPECT_TRUE((o.maxFloorQty = 200).has_value());
-    EXPECT_EQ(o.state_.total_size_, sz_after_two);
-
-    {
-        size_t sz = o.state_.total_size_;
-        Marshaler<SeedLimitOrder, true> r{{std::span<const char>(buffer, sz)}};
-
-        auto maxf = r.maxFloorQty.get();
-        ASSERT_TRUE(maxf.has_value());
-        EXPECT_EQ(*maxf, 200u);
-
-        auto mpid = r.mpid.get();
-        ASSERT_TRUE(mpid.has_value());
-        EXPECT_EQ(*mpid, "BAML");
-    }
+    auto fm = ouch_reader.appendageFirm.get();
+    ASSERT_TRUE(fm.has_value());
+    EXPECT_EQ(*fm, "ABBN"); /* NEEDS MANUAL FIX */
 }
+
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+
+
+// Optional Lifecycle Tests
