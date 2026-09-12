@@ -145,6 +145,44 @@ TEST(OuchTest, EnterOrder_MultipleAppendages_AnyOrder) {
     EXPECT_FALSE(reader.appendagePostOnly.get().has_value());
 }
 
+TEST(OuchTest, EnterOrder_ToJson) {
+    char buffer[1024] = {0};
+    Marshaler<OuchEnterOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
+    o.type = 'O';
+    o.userRefNum = 7;
+    o.side = 'B';
+    o.quantity = 300;
+    o.symbol = "GOOGL";
+    o.price = 100.0;
+    o.timeInForce = '0';
+    o.display = 'Y';
+    o.capacity = 'A';
+    o.interMarketSweepEligibility = 'N';
+    o.crossType = 'N';
+    o.clOrdID = "ORD3";
+
+    EXPECT_TRUE((o.appendageRoute  = "ROUT").has_value());
+    EXPECT_TRUE((o.appendageMinQty = 10).has_value());
+    EXPECT_TRUE((o.appendageFirm   = "ABCD").has_value());
+
+    std::ostringstream oss;
+    JsonOptions opts;
+    opts.detailed_verbosity = true;
+    opts.raw_enums = false;
+    o.to_json(oss, opts);
+
+    std::string json = oss.str();
+
+    EXPECT_TRUE(json.find("\"type\":79") != std::string::npos); // 'O' = 79
+    EXPECT_TRUE(json.find("\"symbol\":\"GOOGL\"") != std::string::npos);
+    EXPECT_TRUE(json.find("\"price\":100") != std::string::npos);
+    EXPECT_TRUE(json.find("\"appendageRoute\":\"ROUT\"") != std::string::npos);
+    EXPECT_TRUE(json.find("\"appendageMinQty\":10") != std::string::npos);
+    EXPECT_TRUE(json.find("\"appendageFirm\":\"ABCD\"") != std::string::npos);
+    EXPECT_TRUE(json.find("\"appendagePostOnly\"") == std::string::npos); // not present at all
+}
+
+
 TEST(OuchTest, EnterOrder_UpdateAppendage_Resize) {
     // Write an appendage, then overwrite with a longer value; verify memmove correctness
     char buffer[1024] = {0};

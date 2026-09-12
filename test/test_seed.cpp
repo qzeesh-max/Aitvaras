@@ -150,6 +150,36 @@ TEST(SeedTest, LimitOrder_AllOptionalFields) {
     EXPECT_EQ(*lb, "BRKR");
 }
 
+TEST(SeedTest, LimitOrder_ToJson) {
+    char buffer[512] = {0};
+    Marshaler<SeedLimitOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
+    o.messageType = 0x4C;
+    o.clOrdId = 123ULL;
+    o.orderQty = 1000;
+    o.price = 100.25;
+    o.limitOrderBitFields = 0; // all bits 0 initially
+    o.symbolId = 10;
+    
+    // Set a few optionals
+    o.locateBroker = "X\"Y\\Z"; // Test string escaping in JSON!
+    
+    std::ostringstream oss;
+    JsonOptions opts;
+    opts.detailed_verbosity = true;
+    opts.raw_enums = false;
+    o.to_json(oss, opts);
+    
+    std::string json = oss.str();
+    std::cout << "JSON: " << json << std::endl;
+    
+    EXPECT_TRUE(json.find("\"messageType\":76") != std::string::npos); // 0x4C = 76
+    EXPECT_TRUE(json.find("\"clOrdId\":123") != std::string::npos);
+    EXPECT_TRUE(json.find("\"price\":100.25") != std::string::npos);
+    EXPECT_TRUE(json.find("\"presenceBits_present\":[\"locateBroker\"]") != std::string::npos);
+    EXPECT_TRUE(json.find("\"locateBroker\":\"X\\\"Y\\\\\"") != std::string::npos); // 4-char string truncated and escaped
+}
+
+
 TEST(SeedTest, MarketOrder_WithMpidAndGroup) {
     char buffer[512] = {0};
     Marshaler<SeedMarketOrder> o{{std::span<char>(buffer, sizeof(buffer))}};
