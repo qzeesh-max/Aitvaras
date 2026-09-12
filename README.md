@@ -10,10 +10,17 @@ Aitvaras is a modern, zero-allocation binary protocol marshaling framework writt
 
 - **Zero-Allocation**: Works entirely with memory spans (`std::span`), allowing for parsing and serialization without any dynamic heap allocations.
 - **C++26 Reflection (`std::meta`)**: Automatically generates serialization logic at compile-time by inspecting the layout and attributes of your C++ structures.
-- **Declarative Annotations**: Define protocol layouts in native C++ using attributes:
-  - `[[=little_endian{}]]` and `[[=big_endian{}]]`: Automatically byteswap fields when the protocol endianness differs from the native system architecture. Supports both struct-level and field-level overrides.
-  - `[[=fixed_length{N}]]`: Ensures robust layout definition.
-  - `[[=string_pad{' '}]]`: Strips trailing characters dynamically upon reading and pads fields upon writing.
+- **Declarative Annotations**: Define protocol layouts directly in native C++ using structural attributes:
+  - `[[=little_endian{}]]` / `[[=big_endian{}]]`: Indicates the byte order of a field or entire struct. Aitvaras automatically byteswaps fields at runtime when the protocol's endianness differs from the native system architecture. Supports both struct-level and field-level overrides.
+  - `[[=padded_string{' ', N}]]`: Identifies a fixed-length string of `N` bytes that is padded with a specific character (e.g., a space). The framework automatically strips the trailing padding when reading, and applies the padding when writing.
+  - `[[=null_terminated_string{N}]]`: Defines a string field up to a maximum length of `N` bytes that terminates early if a null byte is encountered.
+  - `[[=enumeration{^^EnumType}]]`: Transparently maps an integer field to a strongly typed C++ `enum class`.
+  - `[[=fixed_point{D}]]`: Identifies an integer field as representing a fixed-point decimal, applying a decimal scaling factor of `D` places upon JSON serialization or higher-level access.
+  - `[[=non_fixed_bitmap{^^bitmask_field, BIT}]]`: Denotes an optional field whose presence in the buffer is dictated by the value of `BIT` in the specified `bitmask_field`.
+  - `[[=tlv_appendage{TAG}]]`: Marks the field as a dynamic Type-Length-Value (TLV) appendage positioned at the tail end of the message. Only parsed if the appendage identifier matches `TAG`.
+  - `[[=tlv_region_length{}]]`: Identifies the field that specifies the total length (in bytes) of the TLV region at the end of the message.
+  - `[[=length_precedes{^^Type, ADJ}]]`: Indicates that the size of this binary blob or string is determined by parsing a preceding integer of type `Type`, with an optional offset `ADJ`.
+  - `[[=default_invoke{^^func}]]`: Defines a `consteval` function that provides the default value for the field during initialization.
 - **Optional Fields & Bitmaps**: Natively supports structures that contain presence bitmaps controlling the availability of optional fields.
 - **Dynamic Appendages (TLV)**: Natively parses and writes Type-Length-Value (TLV) sequences appended to the end of structured messages, with a fully typed mutator and accessor API.
 - **JSON Serialization**: Automatically generate JSON representations (`to_json`) of binary structures using compile-time reflection, supporting full verbosity configuration for binary blob appendages.
