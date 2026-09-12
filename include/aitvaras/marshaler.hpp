@@ -488,6 +488,7 @@ namespace detail {
         template <std::meta::info field, typename T>
         std::expected<void, const char*> set(T&& val) {
             if constexpr (ForReading) return std::unexpected("Cannot set in ForReading mode");
+            using FieldType = typename [: std::meta::type_of(field) :];
             
             if constexpr (is_tlv_field<field>()) {
                 size_t idx = get_tlv_field_index<field>();
@@ -499,7 +500,7 @@ namespace detail {
                 } else if constexpr (std::is_convertible_v<T, std::string_view>) {
                     req_size = std::string_view{val}.size();
                 } else {
-                    req_size = sizeof(T);
+                    req_size = sizeof(FieldType);
                 }
                 
                 size_t old_len = tlv_sizes_[idx];
@@ -592,7 +593,7 @@ namespace detail {
                     } else if constexpr (std::is_convertible_v<T, std::string_view>) {
                         new_size = std::string_view{val}.size();
                     } else {
-                        new_size = sizeof(T);
+                        new_size = sizeof(FieldType);
                     }
                     
                     if (new_size != old_size) {

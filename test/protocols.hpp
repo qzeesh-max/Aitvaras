@@ -167,23 +167,23 @@ struct SoupDebug {
 // ---------------------------------------------------------
 
 #define OUCH_APPENDAGES \
-    [[=tlv_appendage{1}]] std::span<const uint8_t> appendageSecondaryOrdRefNum; \
-    [[=tlv_appendage{2}]] std::span<const uint8_t> appendageFirm; \
-    [[=tlv_appendage{3}]] std::span<const uint8_t> appendageMinQty; \
-    [[=tlv_appendage{4}]] std::span<const uint8_t> appendageCustomerType; \
-    [[=tlv_appendage{5}]] std::span<const uint8_t> appendageMaxFloor; \
-    [[=tlv_appendage{6}]] std::span<const uint8_t> appendagePriceType; \
-    [[=tlv_appendage{7}]] std::span<const uint8_t> appendagePegOffset; \
-    [[=tlv_appendage{9}]] std::span<const uint8_t> appendageDiscretionPrice; \
-    [[=tlv_appendage{10}]] std::span<const uint8_t> appendageDiscretionPriceType; \
-    [[=tlv_appendage{11}]] std::span<const uint8_t> appendageDiscretionPegOffset; \
-    [[=tlv_appendage{12}]] std::span<const uint8_t> appendagePostOnly; \
-    [[=tlv_appendage{13}]] std::span<const uint8_t> appendageRandomReserves; \
-    [[=tlv_appendage{14}]] std::span<const uint8_t> appendageRoute; \
-    [[=tlv_appendage{15}]] std::span<const uint8_t> appendageExpireTime; \
-    [[=tlv_appendage{16}]] std::span<const uint8_t> appendageTradeNow; \
-    [[=tlv_appendage{17}]] std::span<const uint8_t> appendageHandleInst; \
-    [[=tlv_appendage{18}]] std::span<const uint8_t> appendageBboWeightIndicator;
+    [[=tlv_appendage{1}]] uint64_t appendageSecondaryOrdRefNum; \
+    [[=tlv_appendage{2}]] [[=padded_string{' ', 4}]] std::string_view appendageFirm; \
+    [[=tlv_appendage{3}]] uint32_t appendageMinQty; \
+    [[=tlv_appendage{4}]] uint8_t appendageCustomerType; \
+    [[=tlv_appendage{5}]] uint32_t appendageMaxFloor; \
+    [[=tlv_appendage{6}]] uint8_t appendagePriceType; \
+    [[=tlv_appendage{7}]] int32_t appendagePegOffset; \
+    [[=tlv_appendage{9}]] [[=fixed_point{4}]] uint64_t appendageDiscretionPrice; \
+    [[=tlv_appendage{10}]] uint8_t appendageDiscretionPriceType; \
+    [[=tlv_appendage{11}]] int32_t appendageDiscretionPegOffset; \
+    [[=tlv_appendage{12}]] uint8_t appendagePostOnly; \
+    [[=tlv_appendage{13}]] uint32_t appendageRandomReserves; \
+    [[=tlv_appendage{14}]] [[=padded_string{' ', 4}]] std::string_view appendageRoute; \
+    [[=tlv_appendage{15}]] uint32_t appendageExpireTime; \
+    [[=tlv_appendage{16}]] uint8_t appendageTradeNow; \
+    [[=tlv_appendage{17}]] uint8_t appendageHandleInst; \
+    [[=tlv_appendage{18}]] uint8_t appendageBboWeightIndicator;
 
 [[=packed{}]]
 struct OuchEnterOrder {

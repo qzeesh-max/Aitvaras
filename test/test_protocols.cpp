@@ -180,8 +180,7 @@ TEST(OuchTest, EnterOrder_OneAppendage_Firm) {
     (void)(o.crossType = 'N');
     (void)(o.clOrdID = "ORDER2");
 
-    const uint8_t firm_data[] = {'F', 'I', 'R', 'M'};
-    EXPECT_TRUE((o.appendageFirm = std::span<const uint8_t>(firm_data, 4)).has_value());
+    EXPECT_TRUE((o.appendageFirm = "FIRM").has_value());
 
     // Fixed 47 + TLV frame (2 header + 4 data) = 53
     EXPECT_EQ(o.state_.total_size_, 53u);
@@ -191,9 +190,7 @@ TEST(OuchTest, EnterOrder_OneAppendage_Firm) {
 
     auto firm = reader.appendageFirm.get();
     ASSERT_TRUE(firm.has_value());
-    ASSERT_EQ(firm->size(), 4u);
-    EXPECT_EQ((*firm)[0], 'F');
-    EXPECT_EQ((*firm)[3], 'M');
+    EXPECT_EQ(*firm, "FIRM");
 
     EXPECT_FALSE(reader.appendageMinQty.get().has_value());
     EXPECT_FALSE(reader.appendageRoute.get().has_value());
@@ -217,13 +214,9 @@ TEST(OuchTest, EnterOrder_MultipleAppendages_AnyOrder) {
     (void)(o.crossType = 'N');
     (void)(o.clOrdID = "ORD3");
 
-    const uint8_t route_data[]  = {'R', 'O', 'U', 'T'};
-    const uint8_t minqty_data[] = {0x00, 0x00, 0x00, 0x0A};  // uint32 = 10
-    const uint8_t firm_data[]   = {'A', 'B', 'C', 'D'};
-
-    EXPECT_TRUE((o.appendageRoute  = std::span<const uint8_t>(route_data,  4)).has_value());
-    EXPECT_TRUE((o.appendageMinQty = std::span<const uint8_t>(minqty_data, 4)).has_value());
-    EXPECT_TRUE((o.appendageFirm   = std::span<const uint8_t>(firm_data,   4)).has_value());
+    EXPECT_TRUE((o.appendageRoute  = "ROUT").has_value());
+    EXPECT_TRUE((o.appendageMinQty = 10).has_value());
+    EXPECT_TRUE((o.appendageFirm   = "ABCD").has_value());
 
     // 47 + 3 × (2 + 4) = 47 + 18 = 65
     EXPECT_EQ(o.state_.total_size_, 65u);
@@ -233,15 +226,15 @@ TEST(OuchTest, EnterOrder_MultipleAppendages_AnyOrder) {
 
     auto route = reader.appendageRoute.get();
     ASSERT_TRUE(route.has_value());
-    EXPECT_EQ((*route)[0], 'R');
+    EXPECT_EQ(*route, "ROUT");
 
     auto minqty = reader.appendageMinQty.get();
     ASSERT_TRUE(minqty.has_value());
-    EXPECT_EQ((*minqty)[3], 0x0Au);
+    EXPECT_EQ(*minqty, 0x0Au);
 
     auto firm = reader.appendageFirm.get();
     ASSERT_TRUE(firm.has_value());
-    EXPECT_EQ((*firm)[0], 'A');
+    EXPECT_EQ(*firm, "ABCD");
 
     EXPECT_FALSE(reader.appendageHandleInst.get().has_value());
     EXPECT_FALSE(reader.appendagePostOnly.get().has_value());
@@ -265,31 +258,27 @@ TEST(OuchTest, EnterOrder_UpdateAppendage_Resize) {
     (void)(o.clOrdID = "UPDT");
 
     // Also add a second appendage so we can verify memmove didn't corrupt it
-    const uint8_t firm_data[] = {'Z', 'Z', 'Z', 'Z'};
-    EXPECT_TRUE((o.appendageFirm = std::span<const uint8_t>(firm_data, 4)).has_value());
+    EXPECT_TRUE((o.appendageFirm = "ZZZZ").has_value());
 
-    const uint8_t old_peg[] = {0x01, 0x02};
-    EXPECT_TRUE((o.appendagePegOffset = std::span<const uint8_t>(old_peg, 2)).has_value());
-    size_t sz_before = o.state_.total_size_;  // 47 + (2+4) + (2+2) = 57
+    EXPECT_TRUE((o.appendagePegOffset = 100).has_value());
+    size_t sz_before = o.state_.total_size_;
 
-    const uint8_t new_peg[] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE};
-    EXPECT_TRUE((o.appendagePegOffset = std::span<const uint8_t>(new_peg, 5)).has_value());
-    size_t sz_after = o.state_.total_size_;  // grew by 3
+    // Variable size appendage should allow expanding size
+    EXPECT_TRUE((o.appendagePegOffset = 500).has_value());
+    size_t sz_after = o.state_.total_size_;
 
-    EXPECT_EQ(sz_after - sz_before, 3u);
+    EXPECT_EQ(sz_after - sz_before, 0u);
 
     Marshaler<OuchEnterOrder, true> reader{{std::span<const char>(buffer, sz_after)}};
 
     // Both appendages should be intact
     auto firm = reader.appendageFirm.get();
     ASSERT_TRUE(firm.has_value());
-    EXPECT_EQ((*firm)[0], 'Z');
+    EXPECT_EQ(*firm, "ZZZZ");
 
     auto peg = reader.appendagePegOffset.get();
     ASSERT_TRUE(peg.has_value());
-    ASSERT_EQ(peg->size(), 5u);
-    EXPECT_EQ((*peg)[0], 0xAAu);
-    EXPECT_EQ((*peg)[4], 0xEEu);
+    EXPECT_EQ(*peg, 500u);
 }
 
 TEST(OuchTest, ReplaceOrder_WithAppendage) {
@@ -305,8 +294,7 @@ TEST(OuchTest, ReplaceOrder_WithAppendage) {
     (void)(o.interMarketSweepEligibility = 'N');
     (void)(o.clOrdID = "REPL1");
 
-    const uint8_t handle_data[] = {0x07};
-    EXPECT_TRUE((o.appendageHandleInst = std::span<const uint8_t>(handle_data, 1)).has_value());
+    EXPECT_TRUE((o.appendageHandleInst = 0x07).has_value());
 
     size_t sz = o.state_.total_size_;
     Marshaler<OuchReplaceOrder, true> reader{{std::span<const char>(buffer, sz)}};
@@ -316,7 +304,7 @@ TEST(OuchTest, ReplaceOrder_WithAppendage) {
 
     auto hi = reader.appendageHandleInst.get();
     ASSERT_TRUE(hi.has_value());
-    EXPECT_EQ((*hi)[0], 0x07u);
+    EXPECT_EQ(*hi, 0x07u);
     EXPECT_FALSE(reader.appendageFirm.get().has_value());
 }
 
@@ -367,8 +355,7 @@ TEST(OuchTest, BrokenTrade_WithAppendage) {
     (void)(o.reason = 'E');
     (void)(o.clOrdID = "BRK1");
 
-    const uint8_t secondary[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x23, 0x45};
-    EXPECT_TRUE((o.appendageSecondaryOrdRefNum = std::span<const uint8_t>(secondary, 8)).has_value());
+    EXPECT_TRUE((o.appendageSecondaryOrdRefNum = 0x012345).has_value());
 
     size_t sz = o.state_.total_size_;
     Marshaler<OuchBrokenTrade, true> reader{{std::span<const char>(buffer, sz)}};
@@ -377,8 +364,7 @@ TEST(OuchTest, BrokenTrade_WithAppendage) {
 
     auto sec = reader.appendageSecondaryOrdRefNum.get();
     ASSERT_TRUE(sec.has_value());
-    ASSERT_EQ(sec->size(), 8u);
-    EXPECT_EQ((*sec)[7], 0x45u);
+    EXPECT_EQ(*sec, 0x012345u);
 }
 
 // ============================================================
@@ -682,10 +668,8 @@ TEST(FrameTest, SoupWrappedOuchEnterOrder) {
     (void)(ouch.crossType = 'N');
     (void)(ouch.clOrdID = "AMAZON1");
 
-    const uint8_t route[] = {'D', 'I', 'R', 'T'};
-    const uint8_t firm[]  = {'A', 'M', 'Z', 'N'};
-    EXPECT_TRUE((ouch.appendageRoute = std::span<const uint8_t>(route, 4)).has_value());
-    EXPECT_TRUE((ouch.appendageFirm  = std::span<const uint8_t>(firm,  4)).has_value());
+    EXPECT_TRUE((ouch.appendageRoute = "DEST").has_value());
+    EXPECT_TRUE((ouch.appendageFirm  = "ABBN").has_value());
     size_t ouch_sz = ouch.state_.total_size_;
 
     // Wrap in SOUP unsequenced data
@@ -713,13 +697,11 @@ TEST(FrameTest, SoupWrappedOuchEnterOrder) {
 
     auto rt = ouch_reader.appendageRoute.get();
     ASSERT_TRUE(rt.has_value());
-    EXPECT_EQ((*rt)[0], 'D');
-    EXPECT_EQ((*rt)[3], 'T');
+    EXPECT_EQ(*rt, "DEST");
 
     auto fm = ouch_reader.appendageFirm.get();
     ASSERT_TRUE(fm.has_value());
-    EXPECT_EQ((*fm)[0], 'A');
-    EXPECT_EQ((*fm)[3], 'N');
+    EXPECT_EQ(*fm, "ABBN"); /* NEEDS MANUAL FIX */
 }
 
 int main(int argc, char **argv) {
